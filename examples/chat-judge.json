@@ -1,0 +1,42 @@
+{
+  "dataset": "../evals/support.jsonl",
+  "dataset_name": "support-demo",
+  "baseline": {
+    "kind": "chat",
+    "name": "prompt-v1",
+    "provider": {
+      "model": "YOUR_CHAT_MODEL"
+    },
+    "system_prompt": "You are a support assistant. Refunds are available only within 14 days."
+  },
+  "candidate": {
+    "kind": "chat",
+    "name": "prompt-v2",
+    "provider": {
+      "model": "YOUR_CHAT_MODEL"
+    },
+    "system_prompt": "You are a concise support assistant. Refunds are available only within 14 days."
+  },
+  "evaluators": [
+    {
+      "kind": "judge",
+      "metric": "correctness",
+      "version": "support-rubric-v1",
+      "options": {
+        "rubric": "Score factual correctness against the reference answer. 1 is fully correct, 0 is incorrect. Do not reward verbosity.",
+        "threshold": 0.8
+      }
+    }
+  ],
+  "judge_provider": {
+    "model": "YOUR_JUDGE_MODEL"
+  },
+  "gates": [
+    {
+      "metric": "correctness",
+      "min_score": 0.8,
+      "max_regression": 0.05
+    }
+  ],
+  "output_dir": "../.evalforge"
+}

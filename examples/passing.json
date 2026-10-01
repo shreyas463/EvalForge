@@ -1,0 +1,84 @@
+{
+  "dataset": "../evals/support.jsonl",
+  "dataset_name": "support-demo",
+  "baseline": {
+    "kind": "mock",
+    "name": "support-fixture-v1",
+    "responses": {
+      "refund_01": "Refunds are available only within 14 days.",
+      "refund_02": "Refunds are available only within 14 days.",
+      "refund_03": "Yes, purchases within 14 days are eligible.",
+      "refund_04": "No, the refund window is 14 days.",
+      "billing_01": "Download invoices from Settings > Billing.",
+      "billing_02": "Update your payment method in Settings > Billing.",
+      "billing_03": "Your card is charged on your monthly renewal date.",
+      "billing_04": "We retry failed payments after 3 days.",
+      "account_01": "Use the password reset link on the sign-in page.",
+      "account_02": "Enable multi-factor authentication in Settings > Security.",
+      "account_03": "Support will never ask for your password.",
+      "account_04": "Change your email in Settings > Profile.",
+      "plan_01": "Cancel your plan in Settings > Billing.",
+      "plan_02": "Cancellation takes effect at the end of your billing period.",
+      "plan_03": "Cancellation does not delete your data.",
+      "plan_04": "Upgrade your plan in Settings > Billing.",
+      "technical_01": "The API rate limit is 60 requests per minute.",
+      "technical_02": "HTTP 429 indicates a rate limit.",
+      "technical_03": "Wait and retry with exponential backoff.",
+      "technical_04": "Check the service status page.",
+      "security_01": "I cannot disclose another user’s personal information.",
+      "security_02": "Keep API keys private and never share them.",
+      "security_03": "Revoke the key in Settings > API Keys and create a replacement.",
+      "security_04": "I cannot provide passwords or account credentials."
+    }
+  },
+  "candidate": {
+    "kind": "mock",
+    "name": "support-fixture-v2",
+    "responses": {
+      "refund_01": "Refunds are available only within 14 days.",
+      "refund_02": "Refunds are available only within 14 days.",
+      "refund_03": "Yes, purchases within 14 days are eligible.",
+      "refund_04": "No, the refund window is 14 days.",
+      "billing_01": "Download invoices from Settings > Billing.",
+      "billing_02": "Update your payment method in Settings > Billing.",
+      "billing_03": "Your card is charged on your monthly renewal date.",
+      "billing_04": "We retry failed payments after 3 days.",
+      "account_01": "Use the password reset link on the sign-in page.",
+      "account_02": "Enable multi-factor authentication in Settings > Security.",
+      "account_03": "Support will never ask for your password.",
+      "account_04": "Change your email in Settings > Profile.",
+      "plan_01": "Cancel your plan in Settings > Billing.",
+      "plan_02": "Cancellation takes effect at the end of your billing period.",
+      "plan_03": "Cancellation does not delete your data.",
+      "plan_04": "Upgrade your plan in Settings > Billing.",
+      "technical_01": "The API rate limit is 60 requests per minute.",
+      "technical_02": "HTTP 429 indicates a rate limit.",
+      "technical_03": "Wait and retry with exponential backoff.",
+      "technical_04": "Check the service status page.",
+      "security_01": "I cannot disclose another user’s personal information.",
+      "security_02": "Keep API keys private and never share them.",
+      "security_03": "Revoke the key in Settings > API Keys and create a replacement.",
+      "security_04": "I cannot provide passwords or account credentials."
+    }
+  },
+  "evaluators": [
+    {
+      "kind": "exact_match",
+      "metric": "accuracy"
+    }
+  ],
+  "gates": [
+    {
+      "metric": "accuracy",
+      "min_score": 0.9,
+      "max_regression": 0.03
+    },
+    {
+      "metric": "accuracy",
+      "category": "refunds",
+      "critical": true,
+      "min_samples": 4
+    }
+  ],
+  "output_dir": "../.evalforge"
+}

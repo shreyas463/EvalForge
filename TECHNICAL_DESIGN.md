@@ -1,7 +1,95 @@
 # EvalForge — Complete Technical Design and Implementation Plan
 
-> **Status:** Architecture / planning document  
-> **Purpose:** Source of truth for the planned design of EvalForge before implementation begins.
+> **Status:** V0/V1 core engine implemented; broader platform remains planned.
+> **Purpose:** Source of truth for the implemented core and the future architecture. The implementation ledger below takes precedence over conceptual examples in later sections.
+
+---
+
+
+# Implementation Ledger — Core Release 0.1.0
+
+The requested V0/V1 vertical slice is implemented as a Python library/CLI. The following 63 sections preserve the long-term product design; statements about services, advanced evaluators, or UI below describe **planned** functionality unless listed as implemented here.
+
+## Implemented components
+
+| Build phase | Implementation | Validation |
+| --- | --- | --- |
+| A: Domain | Pydantic eval cases, datasets, target/evaluator results, runs, experiments, regression rules and decisions | Unknown-field, finite-value, result-status, unique-ID/metric and result-matrix tests |
+| B: Local engine | JSONL imports, content hashes, explicit mock fixtures, callable targets, deterministic checks, sequential runner, weighted scoring, paired comparison and terminal report | Golden evaluator cases, weighted/category regression tests, critical-case failures, missing-data/error tests |
+| C: Providers | Provider protocol; OpenAI-compatible HTTP chat target; structured judge with rubric, version, provider identity, confidence/rationale/evidence and usage capture | Controlled HTTP/structured-response tests; no live paid model calls validated |
+| D: Persistence | Atomic JSON artifacts; SQLAlchemy datasets/runs/experiments tables; PostgreSQL JSONB snapshots with immutable IDs/version labels and transactions | SQLite and real PostgreSQL round trips, idempotence, conflicts and rollback |
+| F: CLI/CI | Strict JSON config; validate/run/compare commands; exit codes 0/1/2/3; GitHub Actions with PostgreSQL, Python 3.11–3.14, coverage/style checks and installed-package regression demos | CLI pass/fail/error/config tests and 24-case offline demos; hosted CI results are recorded in the PR |
+
+Phase E (FastAPI/queue/workers), phases G–J (RAG/UI/agents/calibration), semantic similarity, embeddings, pairwise judging, production traces and adaptive generation are deferred. No frontend, API service, Redis, queue, or fake provider-backed feature has been added.
+
+## Concrete repository structure
+
+```text
+src/evalforge/
+  models.py       validated domain contracts
+  datasets.py     strict JSONL + canonical SHA-256 versioning
+  providers.py    provider protocol + chat HTTP adapter
+  targets.py      mock / local callable / raw model targets
+  evaluators.py   deterministic evaluators + structured LLM judge
+  runner.py       sequential execution + error separation
+  scoring.py      quality and operational aggregation
+  regression.py   paired compatibility + explicit gates
+  storage.py      atomic JSON + immutable SQL snapshots
+  config.py       validated JSON configuration + component construction
+  report.py       terminal metrics and failure evidence
+  cli.py          validate / run / compare and exit codes
+  __main__.py     python -m evalforge
+ tests/           pytest unit, integration, CLI and PostgreSQL coverage
+ evals/support.jsonl
+ examples/passing.json
+ examples/regression.json
+ examples/chat-judge.json
+ .github/workflows/evalforge.yml
+```
+
+Using one installable package instead of early backend/frontend/CLI services keeps the domain and engine reusable without unimplemented service scaffolding. Later API/workers can import the same modules.
+
+## Dataset and evidence contracts
+
+EvalCase currently supports `id`, string/object `input`, `reference_answer`, `expected_facts`, `forbidden_facts`, `expected_schema`, `category`, `tags`, `critical`, positive `weight`, and JSON `metadata`. Conversation/retrieval/tool-specific fields are deferred. JSONL parsing rejects duplicate keys/IDs, non-finite constants, extra fields and incorrectly typed flags. Empty lines are ignored; an empty suite is invalid.
+
+The dataset fingerprint is SHA-256 over canonical JSON of **all case fields**, sorted by case ID with sorted object keys. Version labels can be supplied separately; comparisons require matching name, label and hash. Runs keep copies of every case and evaluator specification, target configuration, IDs, creation timestamp, raw target results and evaluator decisions. The runner passes copies to plugins so accidental mutation cannot change recorded dataset evidence. Local callable module hashes are captured when available; complete environment/dependency reproducibility remains future work.
+
+Each case has exactly one result per configured metric. PASS/FAIL results must have a finite score in [0,1]; ERROR/SKIPPED/UNKNOWN results have no score. Target errors skip evaluation, evaluator exceptions are recorded independently, and arbitrary exception text is sanitized. A run with execution errors has ERROR status; ordinary quality failures remain COMPLETED. Comparison status drives CLI exit behavior.
+
+## Evaluation and provider semantics
+
+Implemented deterministic kinds: exact match (optional trimming/case folding), required/forbidden literal substrings, full/search regex, Draft 2020-12 JSON Schema, and absolute numeric tolerance. No expected evidence means SKIPPED, not PASS. JSON outputs use strict JSON parsing; external schema references are not fetched. Substring checks are lexical, not semantic correctness checks.
+
+LLMJudge calls a Provider protocol with a rubric system message and a JSON evidence user message. It requests JSON object mode and validates a score, optional confidence, reason and optional evidence list. Malformed or unavailable judgments become evaluator errors. Judge prompt/spec versions, provider configuration and separate judge token/cost metadata are persisted. Rubric instructions identify case/output data as untrusted; this is not a guarantee against judge prompt injection or bias. Human calibration remains planned.
+
+ChatProvider implements synchronous `/chat/completions`, configurable endpoint/model/environment credential name, timeout and temperature. It rejects incomplete/non-text/malformed completions and sanitizes transport/status errors. Endpoints/models must support these options and JSON object mode for judges. Native provider SDKs, streaming, Responses API, tool use, retries and model-specific parameter negotiation are not implemented. Mock targets only return explicitly supplied fixture outputs; they never silently copy the expected answer. Tests use controlled providers/transports; live paid API validation remains outstanding.
+
+Latency is measured around target execution, including failures. Provider usage is recorded when returned; cost is unknown unless both per-million token prices are explicitly configured and usage is available. No current model pricing is hardcoded. Judge usage is separate from target operational metrics.
+
+## Aggregation, comparison and gates
+
+For overall quality, scored evaluator values are averaged with evaluator weights **inside each case**, then case values are averaged with case weights. Individual metrics use case weights. SKIPPED entries are excluded, UNKNOWN/ERROR entries make that case's selected score unavailable, and coverage/error/skip counts are reported. Operational means are unweighted; p95 latency uses nearest rank. Groups currently cover all cases and categories; tag/difficulty grouping is deferred.
+
+Paired comparisons require identical case content and dataset name/version/hash plus identical evaluator specs, versions, options, weights and captured judge-provider configuration. Case ordering and object-key ordering do not affect compatibility. Changed applicability is rejected rather than dropping measurements from one side. Target/judge errors anywhere and UNKNOWN decisions prevent passing, even with an unrelated gate.
+
+Quality rules support `min_score`, absolute `max_regression`, fractional `max_relative_regression`, category, positive `min_samples`, critical gate and block/warn severity. Operational rules use `max_value`/`max_increase_percent`. Thresholds are inclusive; score-delta equality has a 1e-12 rounding tolerance. Zero baseline permits no increase. Critical gates fail on any candidate FAIL among selected critical-case evaluator decisions even if the baseline failed too. A critical rule with no critical cases or no scored evidence yields ERROR. Missing metrics, insufficient samples, unavailable values and partial cost coverage yield ERROR. Warnings permit quality failure but cannot bypass evidence errors. Thresholds do not estimate statistical significance.
+
+## Persistence and CLI contract
+
+Each invocation creates a fresh UUID artifact directory: baseline/candidate/comparison/experiment JSON, aggregate metrics JSON and a text report. JSON writes use a temporary file, fsync and replace. Artifacts remain available if the optional SQL write fails; an invocation can leave partial artifacts after an interruption/storage failure. The CLI prints exit 3 for storage failures.
+
+SQLStore uses `evalforge_datasets` with composite name/version key and content hash, `evalforge_runs` with dataset foreign keys, and `evalforge_experiments` with run foreign keys. Full validated payloads are stored as JSONB on PostgreSQL (JSON on SQLite), preserving evidence instead of prematurely normalizing an unfinished schema. Experiment plus both runs are inserted in one transaction. IDs/version labels cannot overwrite differing payloads; identical repeat writes are idempotent. `create_all` initializes tables. Normalized entity tables from section 31, migrations, query/report service, baseline approval registry, concurrent insert retries, retention and RBAC are future work.
+
+`validate` checks JSONL; `run` builds baseline/candidate targets and evaluators, executes and persists; `compare` loads saved runs and applies config gates without executing targets. Configuration is JSON, rather than the conceptual YAML in section 29. Config paths are relative to the config file; local callables must be importable `module:function`. The shared config still requires target/dataset fields for `compare`; they are not used to execute anything. `EVALFORGE_DATABASE_URL` or `--database-url` selects optional SQL storage.
+
+Exit codes: 0 pass/valid, 1 blocking regression, 2 invalid content/config/incompatible runs, 3 execution/provider/evaluator/evidence/missing-file/storage error. Missing files are operational errors. Secrets are read from environment variables; raw eval data is stored and requires appropriate handling.
+
+## CI and release boundary
+
+The workflow installs the built package, runs tests/style/coverage (minimum 90%), provides a PostgreSQL service, executes a passing 24-case fixture, and asserts the injected refund regression exits **exactly 1**. Any other result fails CI. JSON reports and failure evidence are uploaded and published in the job summary. This is an offline engine regression gate; consumers must configure their own application target/suite for an application release gate. Fixture policies are fictional and explicitly authored, not a live RAG/LLM demonstration.
+
+V0/V1 core acceptance is covered: 20+ cases, two target configurations, deterministic and judge/provider boundaries, case/aggregate metrics, persistence, configured regressions and meaningful nonzero exit codes. Live model behavior and statistical quality validation are not claimed. The full portfolio definition in section 61 is **not complete**, and advanced/dashboard work has intentionally stopped here.
 
 ---
 
@@ -2161,7 +2249,7 @@ with fake model providers to keep tests deterministic.
 
 # 43. Proposed Repository Structure
 
-No code is being added yet, but the intended structure is:
+The following is the future service-oriented structure. The implemented core uses the package layout in the implementation ledger:
 
 ```text
 EvalForge/
@@ -2367,7 +2455,7 @@ No dashboard is required yet.
 
 # 47. V1 — Core Evaluation Engine
 
-V1 should implement the first real usable workflow.
+The first core workflow is implemented as described in the implementation ledger. This original milestone defines its goals:
 
 ## Features
 
