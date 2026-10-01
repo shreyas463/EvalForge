@@ -1,248 +1,179 @@
 # EvalForge
 
-> **Continuous evaluation and regression testing for LLM applications, RAG systems, and AI agents.**
+**Continuous evaluation and regression gates for AI applications.**
 
-EvalForge is a developer-focused evaluation platform for testing AI systems the way traditional software is tested in CI/CD. It runs repeatable eval suites across prompts, models, retrieval pipelines, or agent versions; scores quality with multiple evaluator types; tracks cost and latency; compares candidate runs against baselines; and flags meaningful regressions before a change reaches production.
+EvalForge runs paired baseline and candidate targets against a versioned JSONL dataset, preserves case-level evidence, scores outputs, and blocks configured regressions. Category and critical-case gates catch failures that an overall average can hide.
 
-**Project status:** Design / architecture phase. No application code has been added yet.
+**Status: V0/V1 core engine implemented.** This release includes the local CLI, provider-backed model/judge interfaces, JSON artifacts, PostgreSQL snapshot persistence, and a GitHub Actions workflow. The dashboard, RAG/agent evaluators, API/worker service, semantic similarity, human calibration, and production ingestion remain planned.
 
-## Why EvalForge?
+## Quick start
 
-AI applications are probabilistic. A model can produce a fluent answer that is wrong, ungrounded, unsafe, or inconsistent. A change that improves one task can silently hurt another. Traditional unit tests alone are not enough to answer:
+Requires Python 3.11 or newer. From a repository checkout:
 
-> **Did this AI system actually get better, and what specifically got worse?**
-
-EvalForge is designed to make AI quality **measurable, reproducible, debuggable, and enforceable in CI/CD**.
-
-## Core Capabilities
-
-EvalForge is planned around the following capabilities:
-
-- versioned evaluation datasets
-- multi-model and multi-prompt experiments
-- deterministic checks
-- semantic similarity evaluators
-- LLM-as-a-judge evaluators
-- pairwise model comparisons
-- RAG retrieval and groundedness evaluation
-- agent/tool-call/trajectory evaluation
-- latency, token, cost, and error-rate tracking
-- baseline vs. candidate regression detection
-- category-level quality gates
-- GitHub Actions integration
-- failure inspection and trace analysis
-- human review and judge calibration
-- production-trace-to-eval workflows
-- adaptive eval-set growth from real failures
-
-## Simple Example
-
-Suppose a support assistant is asked:
-
-> "Can I cancel my Pro plan and get a refund after 30 days?"
-
-The policy states that refunds are available only within 14 days.
-
-A model responds:
-
-> "Yes, refunds are available within 30 days."
-
-The response sounds reasonable, but it is wrong. EvalForge could record:
-
-- Correctness: **FAIL**
-- Groundedness: **FAIL**
-- Policy compliance: **FAIL**
-- Hallucination detected: **YES**
-- Retrieval quality: **PASS**
-- Latency: **1.4 s**
-- Cost: **$0.006**
-
-If a new prompt, model, retriever, or agent workflow is introduced, EvalForge runs the same eval suite again and compares the result against a chosen baseline.
-
-## Core Workflow
-
-```text
-Eval Dataset
-    │
-    ▼
-Candidate AI System
-(LLM / RAG / Agent)
-    │
-    ▼
-Execution + Trace Capture
-    │
-    ▼
-Evaluator Pipeline
- ┌───────────────┬───────────────┬───────────────┬──────────────┐
- │ Deterministic │ Semantic      │ LLM Judge     │ RAG / Agent  │
- │ checks        │ evaluators    │ evaluators    │ evaluators   │
- └───────────────┴───────────────┴───────────────┴──────────────┘
-    │
-    ▼
-Score Aggregation
-    │
-    ▼
-Baseline vs Candidate Comparison
-    │
-    ▼
-Regression Engine
-    │
- ┌──┴──────────────────────┐
- ▼                         ▼
-Dashboard              CI Quality Gate
-                        PASS / FAIL
+```bash
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install '.[dev,postgres]'
+evalforge validate evals/support.jsonl
+evalforge run --config examples/passing.json
+evalforge run --config examples/regression.json
 ```
 
-## Example Regression Report
+The passing fixture exits **0**. The deliberately incorrect refund answer exits **1**:
 
 ```text
-Overall quality          86% → 91%   +5%
-Groundedness             90% → 95%   +5%
-Technical support        82% → 89%   +7%
-Refund-policy accuracy   94% → 76%  -18%  ❌ REGRESSION
-Average latency          1.8s → 2.4s +33%
-Estimated cost/request   $0.012 → $0.018 +50%
+EvalForge Quality Gate: FAIL
+accuracy          1 → 0.958333   delta -0.0416667   FAIL
+accuracy [refunds] 1 → 0.75      delta -0.25        FAIL
+Critical failure: refund_01
+Baseline:  "Refunds are available only within 14 days."
+Candidate: "Refunds are available within 30 days."
 ```
 
-The important behavior is not just computing one overall score. EvalForge should show **which capability regressed, by how much, on which test cases, and why**.
+These are explicit offline fixture responses for 24 fictional support-policy cases. They demonstrate the engine; they are not model-generated answers or a working support assistant.
 
-## Planned Evaluation Types
+Each invocation saves a new directory under `.evalforge/` containing `baseline.json`, `candidate.json`, `comparison.json`, `experiment.json`, `metrics.json`, and `report.txt`. Paths in configuration are relative to the config file. `--output-dir` overrides the artifact root.
 
-### LLM Output Evaluation
+## What works today
 
-- correctness
-- relevance
-- completeness
-- instruction following
-- formatting / schema validity
-- hallucination checks
-- factual consistency
-- policy compliance
-- pairwise preference
+- Strict Pydantic domain/configuration schemas and JSONL validation with line-numbered errors, duplicate-ID/key detection, UTF-8 handling, and SHA-256 content versions.
+- Mock targets, local Python callables, and raw model targets using a synchronous OpenAI-compatible Chat Completions HTTP adapter.
+- Versioned exact match, required/forbidden substring, regex, JSON Schema (Draft 2020-12), and numeric-tolerance evaluators.
+- Structured LLM judges with explicit rubrics, score/confidence validation, rationale, evidence, provider identity, and token/cost capture.
+- Sequential experiment execution with independent target/evaluator errors; errors are never converted into quality scores.
+- Weighted quality scores by metric and category, per-case evidence, average/p95 latency, reported token counts, configured price estimates, and target error rates.
+- Paired comparisons requiring identical dataset content/version and evaluator configurations; mismatched applicability is rejected.
+- Absolute/relative score regression limits, minimum scores/sample counts, category gates, critical-case gates, operational ceilings/increase limits, and warning/blocking severity.
+- Atomic JSON artifact writes and transactional, immutable SQL snapshots in PostgreSQL JSONB (SQLite also supported for local use).
+- CLI validation, execution, comparison of saved runs, and CI integration with pytest and coverage checks.
 
-### RAG Evaluation
+## Dataset format
 
-- retrieval precision
-- retrieval recall
-- Recall@K / Precision@K
-- context relevance
-- answer faithfulness
-- answer groundedness
-- citation correctness
-- retrieval failure vs. generation failure separation
+One JSON object per line:
 
-### Agent Evaluation
+```json
+{"id":"refund_01","input":"Can I get a refund after 30 days?","reference_answer":"Refunds are available only within 14 days.","category":"refunds","critical":true,"tags":["policy"]}
+```
 
-- task completion
-- correct tool selection
-- tool-call arguments
-- required / forbidden tool use
-- trajectory validity
-- unnecessary steps
-- recovery from tool errors
-- final-answer quality
-- token / latency / cost efficiency
+Supported fields: `id`, `input` (string or JSON object), `reference_answer`, `expected_facts`, `forbidden_facts`, `expected_schema`, `category`, `tags`, `critical`, `weight`, and `metadata`. Unknown fields and non-standard JSON constants are rejected. Empty lines are ignored; empty datasets are invalid. Content hashes include every case field, with cases sorted by ID. A supplied version label is recorded alongside the hash; changing content prevents comparison even if the label stays the same.
 
-### Operational Evaluation
+## Configure targets and gates
 
-- latency
-- token usage
-- estimated model cost
-- timeout rate
-- provider error rate
-- retry rate
+Use the complete examples in [`examples/passing.json`](examples/passing.json), [`examples/regression.json`](examples/regression.json), and [`examples/chat-judge.json`](examples/chat-judge.json).
 
-## Proposed Technology Stack
+Evaluator options:
 
-### Evaluation / Backend
-- Python
-- FastAPI
-- Pydantic
-- SQLAlchemy
-- PostgreSQL
-- Redis
-- background worker queue
+| Kind | Options / case evidence |
+| --- | --- |
+| `exact_match` | `reference_answer`; optional `strip` and `case_sensitive` (defaults false/true) |
+| `contains` | All `expected_facts` as literal substrings; optional `case_sensitive` |
+| `excludes` | No `forbidden_facts` as literal substrings; optional `case_sensitive` |
+| `regex` | Required `pattern`; `fullmatch` defaults true |
+| `json_schema` | `options.schema` or the case's `expected_schema`; strict JSON parsing |
+| `numeric` | Required numeric `expected`; absolute `tolerance` defaults 0 |
+| `judge` | Required `rubric`; `threshold` defaults 0.5; top-level `judge_provider` required |
 
-### Model Abstraction
-- LiteLLM-style provider abstraction
-- OpenAI, Anthropic, Gemini, and compatible endpoints
-- structured judge outputs
-- embeddings for semantic evaluators
+The substring checks verify text presence, not factual truth or semantics. Evaluators without required case evidence emit `SKIPPED`. Judge scores are model judgments, and self-reported confidence is not calibrated. JSON Schema supports local references; external references are not fetched.
 
-### Evaluation Ecosystem
-EvalForge will own its core evaluator interface and experiment/regression engine, while allowing adapters or inspiration from tools such as:
+Every evaluator requires a unique `metric`; optional `version` and `weight` default to `1`. Reserved aggregate/operational names are `overall`, `latency_ms`, `p95_latency_ms`, `cost`, and `error_rate`.
 
-- Ragas
-- DeepEval
-- Inspect AI
-- custom evaluators
+```json
+{"metric":"accuracy","category":"refunds","max_regression":0.03,"min_samples":4,"critical":true,"severity":"block"}
+```
 
-The goal is **not** to build a thin wrapper around an existing eval library.
+`max_regression` is an absolute score decrease (0.03 = three percentage points). `max_relative_regression` is a fraction of baseline quality (0.05 = 5%). For lower-is-better operational metrics, use `max_value` and/or `max_increase_percent` (25 = 25%). A zero baseline permits no increase. Limits are inclusive. Critical gates reject **any candidate FAIL** for the selected metric(s) on critical cases, even when the baseline also fails. An overall critical gate examines individual evaluator decisions, not only their weighted mean.
 
-### Observability
-- OpenTelemetry
-- prompt / model / retrieval / tool-call traces
-- token, latency, error, and cost instrumentation
+Missing metrics, insufficient samples, unknown/error results, absent critical-case evidence, and partially missing cost data produce an error decision. Warnings do not block quality regressions, but execution/evidence errors still block. Runs with execution errors cannot pass by selecting an unrelated gate.
 
-### Frontend
-- Next.js
-- TypeScript
-- React
-- Tailwind CSS
+### Local application target
 
-### Infrastructure
-- Docker
-- GitHub Actions
-- pytest
-- PostgreSQL
-- optional cloud deployment later
+Provide an importable `module:function` receiving an `EvalCase` and returning a string or `TargetResult`:
 
-## Project Scope
+```python
+from evalforge.models import EvalCase
 
-The first meaningful version will prove one complete workflow:
+def respond(case: EvalCase) -> str:
+    return my_application.answer(case.input)
+```
 
-1. define a small eval dataset,
-2. execute two versions of an LLM application,
-3. score them with deterministic and model-based evaluators,
-4. persist the experiment,
-5. compare candidate vs. baseline,
-6. surface failing cases,
-7. fail a GitHub Actions quality gate when configured thresholds are exceeded.
+```json
+{"kind":"local","name":"application-v1","callable":"my_app.eval_target:respond"}
+```
 
-RAG evaluation, agent trajectory evaluation, human calibration, production trace ingestion, and adaptive eval generation build on that foundation.
+Install your application package or set `PYTHONPATH` so the module is importable. Local target configuration executes Python code and should come from trusted sources. The module file hash is recorded when available; it is not a complete dependency/environment fingerprint.
 
-## Full Technical Design
+### Model targets and judges
 
-The exhaustive architecture, data model, evaluator design, API plan, schemas, CI behavior, development milestones, security model, testing strategy, deployment plan, and implementation blueprint live here:
+In `examples/chat-judge.json`, replace `YOUR_CHAT_MODEL` and `YOUR_JUDGE_MODEL` with model IDs supported by your endpoint, then set the credential variable named by `api_key_env` (default `OPENAI_API_KEY`). You may set a different `base_url` and credential variable for each target and the judge.
 
-**[TECHNICAL_DESIGN.md](./TECHNICAL_DESIGN.md)**
+```bash
+evalforge run --config examples/chat-judge.json
+```
 
-That document is intended to be the source of truth for how EvalForge will be built.
+The adapter uses `/chat/completions`, temperature, text responses, and JSON object mode for judges, following the [Chat Completions API contract](https://developers.openai.com/api/reference/resources/chat). Models/endpoints must support those options. There are no native Anthropic/Gemini, Responses API, streaming, tool-call, or multimodal adapters in this release. Provider and judge behavior is tested with controlled HTTP/structured fixtures; **live paid API calls have not been validated**. The chat example is a starting configuration, not a promised passing benchmark.
 
-## Long-Term Vision
+Token counts come from provider usage. Cost remains unknown unless both `input_cost_per_million` and `output_cost_per_million` are supplied and usage is returned. Prices are user-configured estimates; no pricing is hardcoded. Judge usage/cost is recorded separately from target cost. Keys are read from the environment and are not stored in run configuration. HTTP errors exclude response bodies and credential values.
+
+## Save to PostgreSQL
+
+Install the `postgres` extra and point at an existing database:
+
+```bash
+export EVALFORGE_DATABASE_URL='postgresql+psycopg://user:password@localhost:5432/evalforge'
+evalforge run --config examples/passing.json
+```
+
+The CLI always writes JSON evidence and additionally stores the experiment and both runs when a database URL is supplied. SQLStore creates the three V1 tables on first use; the database account needs table creation permission. Dataset `(name, version)` and run/experiment IDs are immutable; conflicting writes fail and transactions roll back. Exact repeat writes are idempotent. PostgreSQL is integration-tested; database migrations, concurrent insert retries, retention, and access control remain future work. `sqlite:///path/to/evalforge.db` is an optional local alternative.
+
+Compare previously saved runs with new gates:
+
+```bash
+evalforge compare --config examples/regression.json \
+  --baseline .evalforge/EXPERIMENT_DIRECTORY/baseline.json \
+  --candidate .evalforge/EXPERIMENT_DIRECTORY/candidate.json
+```
+
+This command does not execute targets or judges. It validates the saved evidence and applies the config's gates to those runs; dataset/target fields remain required by the shared experiment configuration.
+
+## CLI exit codes
+
+| Code | Meaning |
+| --- | --- |
+| 0 | Valid dataset, or quality gate passed (warnings allowed) |
+| 1 | Blocking quality regression / critical failure |
+| 2 | Invalid configuration, dataset content, or incompatible runs |
+| 3 | Execution, missing-file, provider, evaluator, evidence, or storage error |
+
+A run can complete with quality failures; `Run.status=ERROR` denotes execution failures. Comparison status determines the CI exit code.
+
+## Tests and CI
+
+```bash
+pytest --cov=evalforge --cov-fail-under=90
+ruff check src tests
+ruff format --check src tests
+```
+
+To run the PostgreSQL integration test locally, set `EVALFORGE_TEST_DATABASE_URL` to a disposable PostgreSQL database. Without it, that test is explicitly skipped. The [GitHub Actions workflow](.github/workflows/evalforge.yml) runs Python 3.11–3.14, a PostgreSQL service, coverage/style checks, installed-package demos, and a negative regression test. Reports and JSON evidence are uploaded as artifacts and included in the job summary. The negative fixture is expected to fail with exit 1; any other exit fails the workflow. To gate your own application, replace the passing fixture command with your application's configured suite and retain its exit code.
+
+## Architecture and boundaries
 
 ```text
-Build or modify AI feature
-        ↓
-Run EvalForge
-        ↓
-Compare against baseline
-        ↓
-Inspect regressions
-        ↓
-Pass quality thresholds
-        ↓
-Merge / deploy
-        ↓
-Capture real failures
-        ↓
-Convert failures into new eval cases
-        ↓
-Repeat
+JSONL + JSON config → Targets → Versioned evaluators → Saved runs
+                                                        ↓
+                          Weighted metrics → Paired comparison → Explicit gates
+                                                        ↓
+                                           CLI report + exit code + CI artifacts
 ```
 
-The long-term goal is for evaluation to become a normal part of the AI software-development lifecycle rather than a one-time benchmark.
+The implementation is a `src/evalforge` Python package with separate models, datasets, targets/providers, evaluators, runner, scoring, regression, storage, configuration, reporting, and CLI modules. It owns the evaluation/regression engine rather than wrapping a third-party eval library.
+
+This release runs sequentially, without application-level retries or background workers. HTTP calls have configurable timeouts; local targets/evaluators do not have enforced execution deadlines. Latency is measured wall time around target execution, and p95 uses nearest rank. Operational averages are unweighted; quality averages use evaluator weights within each case, then case weights across cases. Skips are excluded and coverage is reported. No statistical significance claim is made by threshold gates. Artifacts contain raw inputs/outputs and should be handled as application data.
+
+## Roadmap
+
+[`TECHNICAL_DESIGN.md`](TECHNICAL_DESIGN.md) retains the complete long-term architecture and starts with an implementation ledger. Next stages can add API/workers, migrations, semantic/RAG evaluation, agent trajectories, dashboard, calibration, and production feedback. They have not been built in this release.
 
 ## License
 
-License to be added as the project develops.
+See [LICENSE](LICENSE).

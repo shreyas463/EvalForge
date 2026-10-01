@@ -1,5 +1,6 @@
 """Paired comparisons and explicit, fail-closed quality gates."""
 
+import json
 import math
 
 from evalforge.datasets import dataset_hash
@@ -23,8 +24,10 @@ def _validate_pair(baseline: Run, candidate: Run):
         raise ComparisonError(
             "baseline and candidate must use the same dataset version and content"
         )
-    if sorted(e.model_dump_json() for e in baseline.evaluators) != sorted(
-        e.model_dump_json() for e in candidate.evaluators
+    if sorted(
+        json.dumps(e.model_dump(mode="json"), sort_keys=True) for e in baseline.evaluators
+    ) != sorted(
+        json.dumps(e.model_dump(mode="json"), sort_keys=True) for e in candidate.evaluators
     ):
         raise ComparisonError("baseline and candidate must use identical evaluator configurations")
     before = {r.case.id: r for r in baseline.cases}
@@ -72,26 +75,28 @@ def compare(baseline: Run, candidate: Run, rules: list[RegressionRule]) -> Compa
             if (
                 rule.min_score is not None
                 and c.value < rule.min_score
-                and not math.isclose(c.value, rule.min_score, abs_tol=1e-12)
+                and not math.isclose(c.value, rule.min_score, rel_tol=0, abs_tol=1e-12)
             ):
                 reasons.append(f"candidate below minimum score {rule.min_score}")
             if (
                 rule.max_regression is not None
                 and b.value - c.value > rule.max_regression
-                and not (math.isclose(b.value - c.value, rule.max_regression, abs_tol=1e-12))
+                and not (
+                    math.isclose(b.value - c.value, rule.max_regression, rel_tol=0, abs_tol=1e-12)
+                )
             ):
                 reasons.append(f"absolute regression exceeds {rule.max_regression}")
             if rule.max_relative_regression is not None:
                 limit = abs(b.value) * rule.max_relative_regression
                 if b.value - c.value > limit and not math.isclose(
-                    b.value - c.value, limit, abs_tol=1e-12
+                    b.value - c.value, limit, rel_tol=0, abs_tol=1e-12
                 ):
                     reasons.append(f"relative regression exceeds {rule.max_relative_regression}")
             if rule.max_value is not None and c.value > rule.max_value:
                 reasons.append(f"candidate exceeds maximum {rule.max_value}")
             if rule.max_increase_percent is not None:
                 limit = abs(b.value) * rule.max_increase_percent / 100
-                if delta > limit and not math.isclose(delta, limit, abs_tol=1e-12):
+                if delta > limit and not math.isclose(delta, limit, rel_tol=0, abs_tol=1e-12):
                     reasons.append(f"increase exceeds {rule.max_increase_percent}%")
         if rule.critical:
             selected = [

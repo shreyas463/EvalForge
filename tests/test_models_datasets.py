@@ -85,3 +85,18 @@ def test_json_roundtrip():
     case = EvalCase(id="a", input={"question": "x"}, critical=True)
     assert EvalCase.model_validate_json(case.model_dump_json()) == case
     assert parse_json(json.dumps({"a": 1})) == {"a": 1}
+
+
+def test_invalid_utf8(tmp_path):
+    path = tmp_path / "broken.jsonl"
+    path.write_bytes(b"\xff")
+    with pytest.raises(DatasetError, match="UTF-8"):
+        load_jsonl(path)
+
+
+def test_duplicate_dataset_and_experiment_ids():
+    from evalforge.models import Dataset
+
+    case = EvalCase(id="a", input="x")
+    with pytest.raises(ValidationError, match="duplicate"):
+        Dataset(name="test", version="v1", cases=[case, case])

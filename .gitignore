@@ -4,7 +4,7 @@ __pycache__/
 *.egg-info/
 .pytest_cache/
 .ruff_cache/
-.coverage
+.coverage*
 htmlcov/
 coverage.xml
 build/

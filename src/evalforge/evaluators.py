@@ -6,6 +6,7 @@ import re
 from typing import Protocol
 
 from jsonschema import Draft202012Validator
+from jsonschema.exceptions import SchemaError
 from referencing import Registry
 
 from evalforge.datasets import parse_json
@@ -27,7 +28,10 @@ class JudgeVerdict(Model):
 
 
 def _schema_validator(schema):
-    Draft202012Validator.check_schema(schema)
+    try:
+        Draft202012Validator.check_schema(schema)
+    except (SchemaError, TypeError) as exc:
+        raise ValueError("invalid JSON schema") from exc
     # Empty registry disallows implicit network/file retrieval for external $ref values.
     return Draft202012Validator(schema, registry=Registry())
 

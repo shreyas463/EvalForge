@@ -68,6 +68,7 @@ class EvaluatorSpec(Model):
     version: Name = "1"
     options: dict[str, JsonValue] = Field(default_factory=dict)
     weight: Annotated[float, Field(gt=0, allow_inf_nan=False)] = 1
+    provider_config: dict[str, JsonValue] = Field(default_factory=dict)
 
 
 class EvaluatorResult(Model):
@@ -184,3 +185,12 @@ class Experiment(Model):
     baseline: Run
     candidate: Run
     comparison: Comparison
+
+    @model_validator(mode="after")
+    def matching_runs(self):
+        if (self.comparison.baseline_id, self.comparison.candidate_id) != (
+            self.baseline.id,
+            self.candidate.id,
+        ):
+            raise ValueError("comparison must refer to experiment runs")
+        return self

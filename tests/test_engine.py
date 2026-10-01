@@ -165,3 +165,85 @@ def test_duplicate_and_reserved_metrics_rejected(dataset):
     with pytest.raises(ComparisonError):
         result = run(dataset, {"a": "14 days", "b": "reset"})
         compare(result, result, [])
+
+
+def test_options_key_order_does_not_change_pair_compatibility(dataset):
+    evaluator = DeterministicEvaluator(
+        EvaluatorSpec(
+            metric="accuracy", kind="exact_match", options={"strip": True, "case_sensitive": False}
+        )
+    )
+    baseline = run_experiment(
+        dataset, MockTarget({"a": "14 days", "b": "reset"}), [evaluator], target_name="test"
+    )
+    candidate = baseline.model_copy(deep=True)
+    candidate.evaluators[0].options = {"case_sensitive": False, "strip": True}
+    assert compare(baseline, candidate, [RegressionRule(min_score=1)]).status == "PASS"
+
+
+def test_unknown_judge_status_and_changed_applicability(dataset):
+    baseline = run(dataset, {"a": "14 days", "b": "reset"})
+    candidate = baseline.model_copy(deep=True)
+    from evalforge.models import EvaluatorResult
+
+    candidate.cases[0].evaluations[0] = EvaluatorResult(
+        metric="accuracy", evaluator_version="1", status="UNKNOWN"
+    )
+    assert compare(baseline, candidate, [RegressionRule(min_score=0.1)]).status == "ERROR"
+    candidate.cases[0].evaluations[0] = EvaluatorResult(
+        metric="accuracy", evaluator_version="1", status="SKIPPED"
+    )
+    with pytest.raises(ComparisonError, match="applicability"):
+        compare(baseline, candidate, [RegressionRule(min_score=0.1)])
+
+
+def test_invalid_plugin_results_and_evaluator_failure(dataset):
+    class BadTarget:
+        def execute(self, case):
+            return "not a TargetResult"
+
+    class BadEvaluator:
+        spec = EvaluatorSpec(metric="bad", kind="exact_match")
+
+        def evaluate(self, case, target):
+            from evalforge.models import EvaluatorResult
+
+            return EvaluatorResult(metric="wrong", evaluator_version="1", status="PASS", score=1)
+
+    result = run_experiment(dataset, BadTarget(), [BadEvaluator()], target_name="bad")
+    assert result.status == "ERROR"
+    result = run_experiment(
+        dataset, MockTarget({"a": "yes", "b": "yes"}), [BadEvaluator()], target_name="bad"
+    )
+    assert result.cases[0].evaluations[0].status == "ERROR"
+
+
+def test_p95_nearest_rank_and_cost_increase(dataset):
+    baseline = run(dataset, {"a": "14 days", "b": "reset"})
+    candidate = baseline.model_copy(deep=True)
+    for row in baseline.cases:
+        row.target.cost = 0.1
+    candidate.cases[0].target.cost = 0.2
+    candidate.cases[1].target.cost = 0.3
+    candidate.cases[0].target.latency_ms = 1
+    candidate.cases[1].target.latency_ms = 100
+    assert summarize(candidate, "p95_latency_ms").value == 100
+    result = compare(
+        baseline, candidate, [RegressionRule(metric="cost", max_value=0.2, max_increase_percent=40)]
+    )
+    assert result.status == "FAIL"
+    candidate.cases[1].target.cost = None
+    assert (
+        compare(baseline, candidate, [RegressionRule(metric="cost", max_value=1)]).status == "ERROR"
+    )
+
+
+def test_baseline_error_report_is_visible(dataset):
+    from evalforge.report import render_report
+
+    baseline = run(dataset, {"b": "reset"})
+    candidate = run(dataset, {"a": "14 days", "b": "reset"})
+    comparison = compare(baseline, candidate, [RegressionRule(min_score=0.5)])
+    report = render_report(baseline, candidate, comparison)
+    assert "Baseline target error [a]" in report
+    assert comparison.status == "ERROR"

@@ -167,3 +167,65 @@ def test_missing_key(monkeypatch):
     monkeypatch.delenv("TEST_KEY", raising=False)
     with pytest.raises(ProviderError, match="missing credential"):
         ChatProvider(model="test", api_key_env="TEST_KEY").complete([])
+
+
+@pytest.mark.parametrize("failure", ["timeout", "transport"])
+def test_http_timeout_and_transport_errors(monkeypatch, failure):
+    monkeypatch.setenv("TEST_KEY", "secret")
+
+    def handler(request):
+        if failure == "timeout":
+            raise httpx.ReadTimeout("secret", request=request)
+        raise httpx.ConnectError("secret", request=request)
+
+    provider = ChatProvider(
+        model="test", api_key_env="TEST_KEY", transport=httpx.MockTransport(handler)
+    )
+    with pytest.raises(ProviderError) as exc:
+        provider.complete([])
+    assert "secret" not in str(exc.value)
+
+
+def test_external_schema_reference_cannot_fetch():
+    from jsonschema.exceptions import _WrappedReferencingError
+
+    evaluator = DeterministicEvaluator(
+        EvaluatorSpec(
+            metric="schema",
+            kind="json_schema",
+            options={"schema": {"$ref": "https://example.invalid/schema.json"}},
+        )
+    )
+    with pytest.raises(_WrappedReferencingError):
+        evaluator.evaluate(CASE, TargetResult(output="{}"))
+
+
+def test_case_schema_and_target_failure_skips():
+    evaluator = DeterministicEvaluator(EvaluatorSpec(metric="schema", kind="json_schema"))
+    case = CASE.model_copy(update={"expected_schema": {"type": "integer"}})
+    assert evaluator.evaluate(case, TargetResult(output="1")).status == "PASS"
+    assert (
+        evaluator.evaluate(case, TargetResult(status="ERROR", error="failed")).status == "SKIPPED"
+    )
+    judge = LLMJudge(
+        EvaluatorSpec(metric="judge", kind="judge", options={"rubric": "test"}),
+        FixtureProvider("invalid"),
+    )
+    assert judge.evaluate(case, TargetResult(status="ERROR", error="failed")).status == "SKIPPED"
+
+
+@pytest.mark.parametrize(
+    "options",
+    [
+        {},
+        {"rubric": ""},
+        {"rubric": "test", "threshold": 2},
+        {"rubric": "test", "threshold": True},
+        {"rubric": "test", "typo": 1},
+    ],
+)
+def test_invalid_judge_config(options):
+    with pytest.raises(ValueError):
+        LLMJudge(
+            EvaluatorSpec(metric="judge", kind="judge", options=options), FixtureProvider("{}")
+        )

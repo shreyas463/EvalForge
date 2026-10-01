@@ -1,0 +1,128 @@
+"""Strict JSON experiment configuration and explicit component construction."""
+
+import hashlib
+import importlib
+from pathlib import Path
+from typing import Annotated, Literal
+from urllib.parse import urlsplit
+
+from pydantic import Field, model_validator
+
+from evalforge.datasets import parse_json
+from evalforge.evaluators import DeterministicEvaluator, LLMJudge
+from evalforge.models import EvaluatorSpec, Model, Name, NonNegative, RegressionRule
+from evalforge.providers import ChatProvider
+from evalforge.runner import RESERVED_METRICS
+from evalforge.targets import LLMTarget, LocalTarget, MockTarget
+
+
+class ProviderConfig(Model):
+    model: Name
+    base_url: str = "https://api.openai.com/v1"
+    api_key_env: Name = "OPENAI_API_KEY"
+    timeout: Annotated[float, Field(gt=0, allow_inf_nan=False)] = 60
+    temperature: Annotated[float, Field(ge=0, le=2, allow_inf_nan=False)] = 0
+    input_cost_per_million: NonNegative | None = None
+    output_cost_per_million: NonNegative | None = None
+
+    @model_validator(mode="after")
+    def valid_endpoint(self):
+        url = urlsplit(self.base_url)
+        if (
+            url.scheme not in {"http", "https"}
+            or not url.hostname
+            or url.username
+            or url.password
+            or url.query
+            or url.fragment
+        ):
+            raise ValueError(
+                "base_url must be an HTTP(S) endpoint without credentials/query/fragment"
+            )
+        if (self.input_cost_per_million is None) != (self.output_cost_per_million is None):
+            raise ValueError("provide both input and output prices, or neither")
+        return self
+
+
+class MockConfig(Model):
+    kind: Literal["mock"]
+    name: Name
+    responses: dict[str, str]
+
+
+class LocalConfig(Model):
+    kind: Literal["local"]
+    name: Name
+    callable: Name
+
+
+class ChatConfig(Model):
+    kind: Literal["chat"]
+    name: Name
+    provider: ProviderConfig
+    system_prompt: str = "You are a helpful assistant."
+
+
+TargetConfig = Annotated[MockConfig | LocalConfig | ChatConfig, Field(discriminator="kind")]
+
+
+class ExperimentConfig(Model):
+    dataset: Name
+    dataset_name: Name | None = None
+    dataset_version: Name | None = None
+    baseline: TargetConfig
+    candidate: TargetConfig
+    evaluators: list[EvaluatorSpec] = Field(min_length=1)
+    judge_provider: ProviderConfig | None = None
+    gates: list[RegressionRule] = Field(min_length=1)
+    output_dir: Name = ".evalforge"
+
+    @model_validator(mode="after")
+    def consistent_metrics(self):
+        names = [e.metric for e in self.evaluators]
+        if len(set(names)) != len(names) or set(names) & RESERVED_METRICS:
+            raise ValueError("metrics must be unique and not reserved")
+        if any(e.kind == "judge" for e in self.evaluators) and self.judge_provider is None:
+            raise ValueError("judge evaluator requires judge_provider")
+        if any(g.metric not in set(names) | RESERVED_METRICS for g in self.gates):
+            raise ValueError("gate references unknown metric")
+        return self
+
+
+def load_config(path: str | Path) -> ExperimentConfig:
+    return ExperimentConfig.model_validate(
+        parse_json(Path(path).read_text(encoding="utf-8")), strict=True
+    )
+
+
+def build_target(config: TargetConfig):
+    snapshot = config.model_dump(mode="json")
+    if isinstance(config, MockConfig):
+        return MockTarget(config.responses), snapshot
+    if isinstance(config, ChatConfig):
+        return LLMTarget(
+            ChatProvider(**config.provider.model_dump()), config.system_prompt
+        ), snapshot
+    module_name, separator, attribute = config.callable.partition(":")
+    if not separator or not attribute:
+        raise ValueError("local callable must be module:function")
+    module = importlib.import_module(module_name)
+    function = getattr(module, attribute)
+    if not callable(function):
+        raise ValueError("local target entry point must be callable")
+    file = getattr(module, "__file__", None)
+    if file:
+        snapshot["module_hash"] = hashlib.sha256(Path(file).read_bytes()).hexdigest()
+    return LocalTarget(function), snapshot
+
+
+def build_evaluators(config: ExperimentConfig):
+    evaluators = []
+    for original in config.evaluators:
+        spec = original.model_copy(deep=True)
+        if spec.kind == "judge":
+            spec.provider_config = config.judge_provider.model_dump(mode="json")
+            evaluators.append(LLMJudge(spec, ChatProvider(**config.judge_provider.model_dump())))
+        else:
+            evaluators.append(DeterministicEvaluator(spec))
+    return evaluators
