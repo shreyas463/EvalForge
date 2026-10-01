@@ -2,196 +2,98 @@
 
 > **Continuous evaluation and regression testing for LLM applications, RAG systems, and AI agents.**
 
-EvalForge is a developer-focused platform for testing AI systems the way traditional software is tested in CI/CD. Instead of relying on “this output looks better,” teams can run a repeatable evaluation suite against different prompts, models, retrieval pipelines, or agent versions and measure whether quality actually improved or regressed.
+EvalForge is a developer-focused evaluation platform for testing AI systems the way traditional software is tested in CI/CD. It runs repeatable eval suites across prompts, models, retrieval pipelines, or agent versions; scores quality with multiple evaluator types; tracks cost and latency; compares candidate runs against baselines; and flags meaningful regressions before a change reaches production.
 
-**Project status:** Design / early development.
+**Project status:** Design / architecture phase. No application code has been added yet.
 
----
+## Why EvalForge?
 
-## Project Idea
-
-Modern AI applications are difficult to test because their outputs are probabilistic. A normal unit test can tell you whether a function returned the expected value, but an LLM response can be phrased differently and still be correct — or sound convincing while being factually wrong.
-
-EvalForge provides a structured way to evaluate those systems. A developer supplies an LLM, RAG application, or agent plus a dataset of representative test cases. EvalForge runs the same cases across one or more versions, scores the outputs using multiple evaluators, compares the results, and flags meaningful regressions before a change reaches production.
-
-The goal is simple:
-
-**make AI quality measurable, reproducible, and testable.**
-
----
-
-## Problem Statement
-
-AI teams regularly change:
-
-- system prompts
-- model providers or model versions
-- retrieval strategies
-- embedding models
-- chunking settings
-- tools available to an agent
-- orchestration logic
-- safety rules
-
-A change can improve one part of the application while silently making another part worse.
-
-For example, a new RAG pipeline might improve answer quality overall but reduce accuracy for billing questions. A new model might answer better but double cost and latency. An agent might reach the right final answer while taking an unsafe or incorrect sequence of tool calls.
-
-Traditional unit tests do not capture these failures well.
-
-EvalForge is designed to answer:
+AI applications are probabilistic. A model can produce a fluent answer that is wrong, ungrounded, unsafe, or inconsistent. A change that improves one task can silently hurt another. Traditional unit tests alone are not enough to answer:
 
 > **Did this AI system actually get better, and what specifically got worse?**
 
----
+EvalForge is designed to make AI quality **measurable, reproducible, debuggable, and enforceable in CI/CD**.
 
-## Example
+## Core Capabilities
 
-Imagine a support assistant receives:
+EvalForge is planned around the following capabilities:
+
+- versioned evaluation datasets
+- multi-model and multi-prompt experiments
+- deterministic checks
+- semantic similarity evaluators
+- LLM-as-a-judge evaluators
+- pairwise model comparisons
+- RAG retrieval and groundedness evaluation
+- agent/tool-call/trajectory evaluation
+- latency, token, cost, and error-rate tracking
+- baseline vs. candidate regression detection
+- category-level quality gates
+- GitHub Actions integration
+- failure inspection and trace analysis
+- human review and judge calibration
+- production-trace-to-eval workflows
+- adaptive eval-set growth from real failures
+
+## Simple Example
+
+Suppose a support assistant is asked:
 
 > "Can I cancel my Pro plan and get a refund after 30 days?"
 
-The source policy says refunds are available only within **14 days**.
+The policy states that refunds are available only within 14 days.
 
-Model A answers:
+A model responds:
 
 > "Yes, refunds are available within 30 days."
 
-The answer sounds plausible, but it is incorrect.
+The response sounds reasonable, but it is wrong. EvalForge could record:
 
-EvalForge could record:
+- Correctness: **FAIL**
+- Groundedness: **FAIL**
+- Policy compliance: **FAIL**
+- Hallucination detected: **YES**
+- Retrieval quality: **PASS**
+- Latency: **1.4 s**
+- Cost: **$0.006**
 
-- Correctness: FAIL
-- Groundedness: FAIL
-- Policy compliance: FAIL
-- Hallucination detected: YES
-- Retrieval quality: PASS
-- Latency: 1.4 s
-- Cost: $0.006
-
-If a new prompt or model changes the answer correctly, EvalForge can show that improvement. If another category becomes worse at the same time, the regression is surfaced separately.
-
----
+If a new prompt, model, retriever, or agent workflow is introduced, EvalForge runs the same eval suite again and compares the result against a chosen baseline.
 
 ## Core Workflow
 
 ```text
-                 ┌──────────────────┐
-                 │   Eval Dataset   │
-                 └────────┬─────────┘
-                          │
-                          ▼
-┌───────────────┐   ┌───────────────┐
-│ Model / RAG / │──▶│ Eval Runner   │
-│ Agent Version │   └───────┬───────┘
-└───────────────┘           │
-                            ▼
-                   ┌─────────────────┐
-                   │   Evaluators    │
-                   │                 │
-                   │ deterministic   │
-                   │ LLM-as-a-judge  │
-                   │ RAG metrics     │
-                   │ agent metrics   │
-                   │ cost / latency  │
-                   └────────┬────────┘
-                            │
-                            ▼
-                   ┌─────────────────┐
-                   │ Experiment +    │
-                   │ Regression Diff │
-                   └────────┬────────┘
-                            │
-                  ┌─────────┴─────────┐
-                  ▼                   ▼
-          ┌──────────────┐    ┌──────────────┐
-          │  Dashboard   │    │ GitHub CI    │
-          └──────────────┘    │ Pass / Fail  │
-                              └──────────────┘
+Eval Dataset
+    │
+    ▼
+Candidate AI System
+(LLM / RAG / Agent)
+    │
+    ▼
+Execution + Trace Capture
+    │
+    ▼
+Evaluator Pipeline
+ ┌───────────────┬───────────────┬───────────────┬──────────────┐
+ │ Deterministic │ Semantic      │ LLM Judge     │ RAG / Agent  │
+ │ checks        │ evaluators    │ evaluators    │ evaluators   │
+ └───────────────┴───────────────┴───────────────┴──────────────┘
+    │
+    ▼
+Score Aggregation
+    │
+    ▼
+Baseline vs Candidate Comparison
+    │
+    ▼
+Regression Engine
+    │
+ ┌──┴──────────────────────┐
+ ▼                         ▼
+Dashboard              CI Quality Gate
+                        PASS / FAIL
 ```
 
----
-
-## Planned Features
-
-### 1. Evaluation Datasets
-
-Create versioned datasets containing:
-
-- input prompts
-- expected behavior
-- reference answers
-- expected facts
-- retrieved context
-- required / forbidden tool calls
-- metadata and categories
-- edge cases and adversarial cases
-
-This allows the same test suite to be run repeatedly as an AI system changes.
-
-### 2. Multi-Model and Multi-Version Experiments
-
-Run the same dataset against combinations such as:
-
-- Model A + Prompt V1
-- Model A + Prompt V2
-- Model B + Prompt V2
-- RAG V1 vs. RAG V2
-- Agent workflow V1 vs. V2
-
-EvalForge then produces a side-by-side comparison rather than relying on subjective inspection.
-
-### 3. Multiple Evaluation Strategies
-
-Not every AI output should be graded by another LLM.
-
-EvalForge will combine several evaluation methods:
-
-**Deterministic evaluators**
-- exact / partial match
-- regex checks
-- JSON-schema validation
-- required keyword / fact checks
-- forbidden-content checks
-- tool-call validation
-
-**Semantic evaluators**
-- embedding similarity
-- reference-answer similarity
-
-**LLM-as-a-judge**
-- correctness
-- relevance
-- completeness
-- groundedness
-- instruction following
-- pairwise preference
-
-**RAG evaluators**
-- context relevance
-- answer faithfulness
-- retrieval precision
-- retrieval recall
-- Recall@K / Precision@K
-
-**Agent evaluators**
-- correct tool selection
-- tool-call arguments
-- trajectory validity
-- unnecessary steps
-- task completion
-
-**Operational metrics**
-- latency
-- token usage
-- estimated cost
-- error rate
-
-### 4. Regression Detection
-
-EvalForge will compare a candidate run against a baseline.
-
-Example:
+## Example Regression Report
 
 ```text
 Overall quality          86% → 91%   +5%
@@ -199,321 +101,147 @@ Groundedness             90% → 95%   +5%
 Technical support        82% → 89%   +7%
 Refund-policy accuracy   94% → 76%  -18%  ❌ REGRESSION
 Average latency          1.8s → 2.4s +33%
+Estimated cost/request   $0.012 → $0.018 +50%
 ```
 
-The important part is not only computing an average score, but showing **where** the system became worse.
+The important behavior is not just computing one overall score. EvalForge should show **which capability regressed, by how much, on which test cases, and why**.
 
-### 5. GitHub CI Integration
+## Planned Evaluation Types
 
-EvalForge is intended to work like an AI-quality test suite inside GitHub Actions.
+### LLM Output Evaluation
 
-A pull request that changes a prompt, model configuration, retrieval pipeline, or agent workflow can automatically trigger an eval run.
+- correctness
+- relevance
+- completeness
+- instruction following
+- formatting / schema validity
+- hallucination checks
+- factual consistency
+- policy compliance
+- pairwise preference
 
-Example result:
+### RAG Evaluation
 
-```text
-❌ EvalForge regression detected
+- retrieval precision
+- retrieval recall
+- Recall@K / Precision@K
+- context relevance
+- answer faithfulness
+- answer groundedness
+- citation correctness
+- retrieval failure vs. generation failure separation
 
-Refund-policy accuracy
-Baseline: 94%
-Candidate: 76%
-Change: -18%
+### Agent Evaluation
 
-Regression threshold: -5%
+- task completion
+- correct tool selection
+- tool-call arguments
+- required / forbidden tool use
+- trajectory validity
+- unnecessary steps
+- recovery from tool errors
+- final-answer quality
+- token / latency / cost efficiency
 
-CI check failed.
-```
+### Operational Evaluation
 
-This allows teams to catch model-quality regressions before merging code.
-
-### 6. Failure Explorer
-
-For failed examples, developers should be able to inspect:
-
-```text
-Input
-  ↓
-Retrieved Context
-  ↓
-Model Response
-  ↓
-Expected Behavior
-  ↓
-Evaluator Scores
-  ↓
-Judge Explanation
-```
-
-The goal is to make failures debuggable rather than only producing a numeric score.
-
-### 7. Judge Calibration
-
-LLM judges are also imperfect.
-
-EvalForge will support human labels so that automated evaluators can be compared against human judgments.
-
-Planned measurements include:
-
-- judge vs. human agreement
-- pairwise agreement
-- false-positive / false-negative analysis
-- judge consistency
-- evaluator confidence
-
-This addresses an important question in LLM evaluation:
-
-> **Who evaluates the evaluator?**
-
-### 8. Adaptive Eval Generation
-
-A later feature will turn production failures into new regression tests.
-
-```text
-Production failure
-      ↓
-Failure trace
-      ↓
-Candidate eval case generated
-      ↓
-Human review
-      ↓
-Added to eval dataset
-      ↓
-Future versions tested against it
-```
-
-This allows the evaluation suite to become stronger as the application encounters new failures.
-
-### 9. Experiment Dashboard
-
-The dashboard will provide:
-
-- experiment history
-- baseline vs. candidate comparison
-- metric breakdowns
-- category-level regressions
-- individual failed cases
-- model / prompt metadata
-- latency and cost comparison
-- evaluator explanations
-
----
+- latency
+- token usage
+- estimated model cost
+- timeout rate
+- provider error rate
+- retry rate
 
 ## Proposed Technology Stack
 
-### Backend / Eval Engine
+### Evaluation / Backend
+- Python
+- FastAPI
+- Pydantic
+- SQLAlchemy
+- PostgreSQL
+- Redis
+- background worker queue
 
-- **Python** — core evaluation engine
-- **FastAPI** — API layer
-- **Pydantic** — typed eval schemas and structured outputs
-- **SQLAlchemy** — persistence layer
-- **PostgreSQL** — experiments, datasets, runs, metrics, and labels
-- **Redis** — caching and job coordination
-- **Celery** or a lightweight worker queue — parallel evaluation jobs
+### Model Abstraction
+- LiteLLM-style provider abstraction
+- OpenAI, Anthropic, Gemini, and compatible endpoints
+- structured judge outputs
+- embeddings for semantic evaluators
 
-### LLM / Model Layer
+### Evaluation Ecosystem
+EvalForge will own its core evaluator interface and experiment/regression engine, while allowing adapters or inspiration from tools such as:
 
-- **LiteLLM** — common interface across multiple model providers
-- provider adapters for **OpenAI, Anthropic, and Gemini**
-- structured outputs for judge responses
-- embeddings for semantic evaluation
+- Ragas
+- DeepEval
+- Inspect AI
+- custom evaluators
 
-The architecture will remain provider-independent so the same eval suite can compare models from different vendors.
-
-### Evaluation
-
-EvalForge will implement its own core evaluator interface while integrating useful ideas or adapters from existing evaluation ecosystems such as:
-
-- **Ragas** for RAG-oriented metrics
-- **DeepEval** for reusable evaluation patterns
-- **Inspect AI** / custom task-style evaluation where appropriate
-
-The project is not intended to be only a wrapper around another eval library. The main engineering work is the experiment engine, evaluator orchestration, regression logic, judge calibration, tracing, CI integration, and debugging workflow.
+The goal is **not** to build a thin wrapper around an existing eval library.
 
 ### Observability
-
-- **OpenTelemetry** for traces and spans
-- trace capture for prompts, retrieval, model calls, and tool calls
-- token, latency, and cost instrumentation
+- OpenTelemetry
+- prompt / model / retrieval / tool-call traces
+- token, latency, error, and cost instrumentation
 
 ### Frontend
-
-- **Next.js**
-- **TypeScript**
-- **React**
-- **Tailwind CSS**
-
-The frontend will focus on experiment comparison and failure analysis rather than being a generic chat UI.
+- Next.js
+- TypeScript
+- React
+- Tailwind CSS
 
 ### Infrastructure
+- Docker
+- GitHub Actions
+- pytest
+- PostgreSQL
+- optional cloud deployment later
 
-- **Docker**
-- **GitHub Actions**
-- **pytest**
-- **PostgreSQL**
-- optional cloud deployment on **AWS / GCP / Azure**
+## Project Scope
 
----
+The first meaningful version will prove one complete workflow:
 
-## Proposed Architecture
+1. define a small eval dataset,
+2. execute two versions of an LLM application,
+3. score them with deterministic and model-based evaluators,
+4. persist the experiment,
+5. compare candidate vs. baseline,
+6. surface failing cases,
+7. fail a GitHub Actions quality gate when configured thresholds are exceeded.
 
-```text
-                        EvalForge
-                            │
-           ┌────────────────┼────────────────┐
-           │                │                │
-           ▼                ▼                ▼
-      Dataset API      Experiment API    Dashboard
-           │                │
-           └────────┬───────┘
-                    ▼
-              Evaluation Runner
-                    │
-        ┌───────────┼───────────┐
-        ▼           ▼           ▼
-   LLM App       RAG App     AI Agent
-        │           │           │
-        └───────────┼───────────┘
-                    ▼
-             Trace Collection
-                    │
-                    ▼
-            Evaluator Pipeline
-       ┌────────────┼────────────┐
-       ▼            ▼            ▼
- Deterministic   LLM Judge    RAG / Agent
-    Checks                        Metrics
-       └────────────┼────────────┘
-                    ▼
-              Score Aggregator
-                    │
-                    ▼
-             Regression Engine
-                    │
-          ┌─────────┴─────────┐
-          ▼                   ▼
-     PostgreSQL          GitHub Action
-          │              Pass / Fail
-          ▼
-      Dashboard
-```
+RAG evaluation, agent trajectory evaluation, human calibration, production trace ingestion, and adaptive eval generation build on that foundation.
 
----
+## Full Technical Design
 
-## Suggested Development Roadmap
+The exhaustive architecture, data model, evaluator design, API plan, schemas, CI behavior, development milestones, security model, testing strategy, deployment plan, and implementation blueprint live here:
 
-### V1 — Evaluation Engine
+**[TECHNICAL_DESIGN.md](./TECHNICAL_DESIGN.md)**
 
-Build the smallest complete workflow:
-
-- dataset format
-- model adapter
-- eval runner
-- deterministic evaluators
-- LLM-as-a-judge
-- experiment storage
-- baseline vs. candidate comparison
-- CLI output
-
-### V2 — RAG + CI
-
-Add:
-
-- RAG metrics
-- retrieval tracing
-- GitHub Actions integration
-- regression thresholds
-- cost / latency tracking
-- web dashboard
-- failure explorer
-
-### V3 — Advanced Evals
-
-Add:
-
-- agent trajectory evaluation
-- pairwise model comparison
-- human annotations
-- judge calibration
-- adaptive eval generation from failures
-- production trace ingestion
-
----
-
-## What Makes EvalForge Different From a Simple LLM Judge
-
-A basic eval project might ask another model:
-
-> "Score this answer from 1 to 10."
-
-EvalForge is intended to go substantially further.
-
-It treats evaluation as an engineering system:
-
-- versioned datasets
-- repeatable experiments
-- heterogeneous evaluators
-- RAG and agent traces
-- baseline comparisons
-- category-level regressions
-- judge calibration
-- latency / cost tradeoffs
-- CI/CD quality gates
-- failure analysis
-- continuously improving eval datasets
-
-The goal is not just to **score LLM outputs**.
-
-The goal is to build infrastructure that helps developers answer:
-
-> **Can I safely ship this new version of my AI application?**
-
----
+That document is intended to be the source of truth for how EvalForge will be built.
 
 ## Long-Term Vision
 
-EvalForge should become a lightweight quality layer that can sit between AI development and deployment.
-
 ```text
-Build AI feature
-      ↓
+Build or modify AI feature
+        ↓
 Run EvalForge
-      ↓
+        ↓
 Compare against baseline
-      ↓
-Investigate failures
-      ↓
+        ↓
+Inspect regressions
+        ↓
 Pass quality thresholds
-      ↓
+        ↓
 Merge / deploy
-      ↓
-Capture production failures
-      ↓
-Add new eval cases
-      ↓
+        ↓
+Capture real failures
+        ↓
+Convert failures into new eval cases
+        ↓
 Repeat
 ```
 
-As AI systems become more agentic and less deterministic, reliable evaluation becomes part of the software-development lifecycle rather than a one-time benchmark.
-
----
-
-## Current Scope
-
-The first goal is **not** to build every feature above at once.
-
-The initial milestone is a working end-to-end system that can:
-
-1. accept a small eval dataset,
-2. run two LLM application versions,
-3. score them with deterministic and model-based evaluators,
-4. compare the results,
-5. identify regressions,
-6. fail a GitHub Actions check when configured thresholds are exceeded.
-
-That gives EvalForge a useful core before expanding into RAG evaluation, agent trajectories, human calibration, and production monitoring.
-
----
+The long-term goal is for evaluation to become a normal part of the AI software-development lifecycle rather than a one-time benchmark.
 
 ## License
 
