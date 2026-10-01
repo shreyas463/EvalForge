@@ -1,0 +1,2855 @@
+# EvalForge — Complete Technical Design and Implementation Plan
+
+> **Status:** Architecture / planning document  
+> **Purpose:** Source of truth for the planned design of EvalForge before implementation begins.
+
+---
+
+# 1. Executive Summary
+
+EvalForge is a platform for **continuous evaluation, regression testing, and quality gating of LLM applications, RAG systems, and AI agents**.
+
+The core problem is that AI systems are probabilistic. A normal application can often be validated with deterministic unit tests. An AI application can produce many different valid outputs, and an output can sound convincing while being wrong, ungrounded, policy-violating, unnecessarily expensive, or produced through an incorrect agent trajectory.
+
+EvalForge is designed to provide a repeatable engineering workflow for answering:
+
+> **Did this AI system actually improve, what regressed, why did it regress, and should this version be allowed to ship?**
+
+The platform will let developers:
+
+1. create versioned evaluation datasets,
+2. register or call different AI-system versions,
+3. run the same cases across candidate and baseline versions,
+4. capture outputs and traces,
+5. score results using multiple evaluator types,
+6. aggregate metrics by task and category,
+7. detect regressions,
+8. inspect individual failures,
+9. enforce quality thresholds in CI/CD,
+10. collect human labels to calibrate evaluators,
+11. turn real production failures into future regression tests.
+
+The first implementation will deliberately focus on one complete end-to-end path rather than trying to build the full long-term platform immediately.
+
+---
+
+# 2. Problem Statement
+
+## 2.1 Why AI applications are difficult to test
+
+Traditional software frequently has deterministic expectations.
+
+Example:
+
+```text
+input: 2 + 2
+expected output: 4
+```
+
+LLM applications are different.
+
+For the prompt:
+
+```text
+Explain why the payment failed.
+```
+
+many different responses may all be valid. Exact-string comparison is therefore insufficient.
+
+At the same time, fluency is not correctness. An LLM can return a polished response that:
+
+- contains an invented fact,
+- ignores provided context,
+- cites the wrong document,
+- violates a policy,
+- fails to call a required tool,
+- calls the wrong tool,
+- uses correct tools in the wrong order,
+- produces the correct final answer through an unsafe trajectory,
+- costs substantially more than the previous version,
+- becomes much slower,
+- improves the average score while becoming much worse on one critical category.
+
+The system still “runs,” but its quality may have degraded.
+
+## 2.2 What causes regressions
+
+AI teams frequently change:
+
+- system prompts,
+- user-prompt templates,
+- model provider,
+- model family,
+- model version,
+- temperature or sampling settings,
+- tool descriptions,
+- tool schemas,
+- orchestration logic,
+- retry behavior,
+- retrieval method,
+- embedding model,
+- chunk size,
+- chunk overlap,
+- reranker,
+- top-k settings,
+- metadata filters,
+- context-window strategy,
+- safety policies,
+- output schemas,
+- memory logic,
+- agent-planning strategy.
+
+Any of these can change behavior.
+
+## 2.3 The central engineering question
+
+EvalForge exists to answer:
+
+> **Can this candidate version be shipped without introducing unacceptable quality regressions?**
+
+That requires more than one model-generated score. It requires repeatable datasets, traces, multiple evaluator types, baselines, category-aware comparisons, human calibration, and CI integration.
+
+---
+
+# 3. Product Goals
+
+EvalForge should eventually provide all of the following.
+
+## 3.1 Primary goals
+
+### G1 — Reproducible evaluation
+
+The same dataset and configuration should be runnable repeatedly against different system versions.
+
+### G2 — Multiple evaluator types
+
+Different failures require different evaluators.
+
+EvalForge should support deterministic checks, semantic evaluators, model-based judges, RAG metrics, agent metrics, and operational metrics.
+
+### G3 — Baseline vs. candidate comparison
+
+Every important experiment should be comparable against a selected baseline.
+
+### G4 — Regression detection
+
+The system should detect where candidate quality decreases beyond configured tolerance.
+
+### G5 — Debuggability
+
+A score without an explanation is not enough.
+
+A developer should be able to inspect:
+
+- input,
+- expected behavior,
+- retrieved context,
+- tool calls,
+- model output,
+- evaluator result,
+- judge rationale,
+- baseline output,
+- candidate output,
+- metric deltas.
+
+### G6 — CI/CD integration
+
+Evaluation should be runnable automatically for pull requests and releases.
+
+### G7 — RAG-specific evaluation
+
+EvalForge should separate retrieval failure from generation failure.
+
+### G8 — Agent-specific evaluation
+
+EvalForge should evaluate both final task success and the sequence of actions taken.
+
+### G9 — Judge calibration
+
+Automated evaluators should themselves be measurable against human labels.
+
+### G10 — Continuous eval-set improvement
+
+Real failures should be convertible into future regression tests.
+
+---
+
+# 4. Non-Goals
+
+Defining non-goals prevents the project from becoming an unfocused “AI platform.”
+
+EvalForge is **not initially intended to be**:
+
+- a model-training platform,
+- a fine-tuning platform,
+- a general prompt IDE,
+- a full production observability vendor,
+- a chat application,
+- a generic vector database,
+- a model gateway,
+- a replacement for application-level unit tests,
+- a benchmark leaderboard for foundation models,
+- a fully autonomous red-team platform,
+- a replacement for human evaluation.
+
+Some of these may integrate with EvalForge later, but they are not the initial product.
+
+---
+
+# 5. Target Users
+
+## 5.1 AI application engineers
+
+Need to validate prompt/model changes before shipping.
+
+## 5.2 RAG engineers
+
+Need to understand whether a failure came from retrieval or generation.
+
+## 5.3 Agent engineers
+
+Need to validate tool selection, tool arguments, trajectory quality, and task completion.
+
+## 5.4 ML / applied-AI engineers
+
+Need repeatable experiments and comparable metrics.
+
+## 5.5 QA / reliability engineers
+
+Need regression suites and release gates for probabilistic systems.
+
+## 5.6 Small AI teams and startups
+
+Need lightweight eval infrastructure without building an internal platform from scratch.
+
+---
+
+# 6. Core Use Cases
+
+## UC1 — Prompt regression testing
+
+Compare Prompt V1 and Prompt V2 against the same model and dataset.
+
+## UC2 — Model migration
+
+Compare two model providers or two model versions using the same application behavior.
+
+## UC3 — RAG pipeline comparison
+
+Compare retrieval configurations such as:
+
+```text
+Embedding A + top_k=5 + no reranker
+vs.
+Embedding B + top_k=10 + reranker
+```
+
+## UC4 — Agent workflow change
+
+Determine whether a new planner or tool description improves task completion without increasing bad tool calls.
+
+## UC5 — Pull-request quality gate
+
+Run a reduced eval suite for every PR and fail CI when critical thresholds regress.
+
+## UC6 — Release evaluation
+
+Run a larger suite before deployment.
+
+## UC7 — Human judge calibration
+
+Compare evaluator decisions with human-reviewed labels.
+
+## UC8 — Production failure replay
+
+Turn a real failure into a reproducible offline test.
+
+---
+
+# 7. Core Product Principles
+
+## 7.1 Prefer deterministic evaluation where possible
+
+If a JSON schema can prove that an output is invalid, do not spend an LLM call asking a judge whether it is valid.
+
+## 7.2 Use model judges only where judgment is genuinely needed
+
+Examples:
+
+- relevance,
+- completeness,
+- nuanced correctness,
+- pairwise preference,
+- instruction following.
+
+## 7.3 Keep raw evidence
+
+Store the response, trace, context, metrics, evaluator result, and configuration needed to understand a run.
+
+## 7.4 Separate quality dimensions
+
+Do not hide everything behind a single score.
+
+A system may improve relevance while hurting groundedness.
+
+## 7.5 Make regression rules explicit
+
+A CI failure should be explainable.
+
+## 7.6 Treat evaluators as systems that can fail
+
+Judge quality must be measurable.
+
+## 7.7 Optimize for paired comparisons
+
+Whenever possible, compare baseline and candidate on exactly the same test cases.
+
+---
+
+# 8. Terminology
+
+## Eval Case
+
+One test example.
+
+## Eval Dataset
+
+A versioned collection of eval cases.
+
+## Target
+
+The AI system being evaluated.
+
+Examples:
+
+- raw LLM call,
+- RAG endpoint,
+- agent endpoint.
+
+## Run
+
+Execution of one target configuration across an eval dataset.
+
+## Experiment
+
+Logical grouping of one or more runs intended for comparison.
+
+## Baseline
+
+Approved reference run or configuration.
+
+## Candidate
+
+New version being evaluated.
+
+## Evaluator
+
+A component that scores one or more aspects of an output or trace.
+
+## Metric
+
+A numeric or categorical result emitted by an evaluator.
+
+## Regression
+
+A candidate metric that becomes worse than the allowed threshold relative to baseline.
+
+## Trace
+
+Structured record of execution such as retrieval, model calls, and tool calls.
+
+## Quality Gate
+
+Rule that determines whether a run should pass or fail CI.
+
+---
+
+# 9. End-to-End Workflow
+
+The complete conceptual flow is:
+
+```text
+1. Developer defines Eval Dataset
+                    │
+                    ▼
+2. Developer defines Target Configurations
+   ├── baseline
+   └── candidate
+                    │
+                    ▼
+3. Experiment created
+                    │
+                    ▼
+4. Runner executes each case
+                    │
+                    ▼
+5. Trace collector records
+   ├── prompt
+   ├── retrieved context
+   ├── model response
+   ├── tool calls
+   ├── tokens
+   ├── latency
+   └── errors
+                    │
+                    ▼
+6. Evaluator pipeline runs
+   ├── deterministic
+   ├── semantic
+   ├── LLM judge
+   ├── RAG
+   ├── agent
+   └── operational
+                    │
+                    ▼
+7. Metric aggregation
+                    │
+                    ▼
+8. Baseline vs candidate comparison
+                    │
+                    ▼
+9. Regression engine
+                    │
+        ┌───────────┴───────────┐
+        ▼                       ▼
+10A. Dashboard              10B. CI Gate
+     failure analysis            pass/fail
+                    │
+                    ▼
+11. Human review where needed
+                    │
+                    ▼
+12. Approved failures can become new eval cases
+```
+
+---
+
+# 10. High-Level Architecture
+
+```text
+                          ┌──────────────────────┐
+                          │      Web UI / CLI    │
+                          └──────────┬───────────┘
+                                     │
+                                     ▼
+                          ┌──────────────────────┐
+                          │      FastAPI API     │
+                          │     Control Plane    │
+                          └──────────┬───────────┘
+                                     │
+             ┌───────────────────────┼──────────────────────┐
+             │                       │                      │
+             ▼                       ▼                      ▼
+     ┌───────────────┐      ┌────────────────┐     ┌────────────────┐
+     │ Dataset       │      │ Experiment     │     │ Configuration  │
+     │ Service       │      │ Service        │     │ Registry       │
+     └───────┬───────┘      └───────┬────────┘     └────────────────┘
+             │                      │
+             └───────────┬──────────┘
+                         ▼
+                ┌───────────────────┐
+                │ Experiment       │
+                │ Orchestrator     │
+                └─────────┬─────────┘
+                          │
+                          ▼
+                ┌───────────────────┐
+                │ Job Queue /      │
+                │ Worker Pool      │
+                └─────────┬─────────┘
+                          │
+                          ▼
+                ┌───────────────────┐
+                │ Target Adapters   │
+                │ LLM / RAG / Agent│
+                └─────────┬─────────┘
+                          │
+                          ▼
+                ┌───────────────────┐
+                │ Trace Collector   │
+                └─────────┬─────────┘
+                          │
+                          ▼
+                ┌───────────────────┐
+                │ Evaluator Pipeline│
+                └─────────┬─────────┘
+                          │
+                          ▼
+                ┌───────────────────┐
+                │ Score Aggregator  │
+                └─────────┬─────────┘
+                          │
+                          ▼
+                ┌───────────────────┐
+                │ Regression Engine │
+                └──────┬───────┬────┘
+                       │       │
+                       ▼       ▼
+                ┌──────────┐ ┌──────────────┐
+                │Dashboard │ │GitHub Actions│
+                └──────────┘ │Quality Gate  │
+                             └──────────────┘
+
+Persistence:
+PostgreSQL stores datasets, configurations, experiments, cases, results,
+metrics, labels, regression outcomes, and metadata.
+
+Redis / queue infrastructure coordinates asynchronous work.
+```
+
+---
+
+# 11. Major Components
+
+# 11.1 Control Plane API
+
+The API manages:
+
+- datasets,
+- dataset versions,
+- target configurations,
+- experiments,
+- runs,
+- evaluator configurations,
+- quality gates,
+- human labels,
+- reports.
+
+The API should not directly execute long-running eval jobs synchronously.
+
+Responsibilities:
+
+- validate requests,
+- create database records,
+- enqueue work,
+- expose status,
+- return results,
+- enforce permissions later.
+
+Proposed implementation:
+
+- Python
+- FastAPI
+- Pydantic
+- SQLAlchemy
+
+---
+
+# 11.2 Dataset Service
+
+The dataset service manages eval cases and dataset versions.
+
+Required capabilities:
+
+- create dataset,
+- add cases,
+- edit metadata,
+- create immutable version snapshots,
+- tag cases by category,
+- import JSONL,
+- export JSONL,
+- mark critical cases,
+- link production incidents to cases.
+
+Important design principle:
+
+Once an experiment runs against dataset version X, version X should remain reproducible.
+
+Editing the dataset should create a new logical version rather than silently changing historical experiments.
+
+---
+
+# 11.3 Configuration Registry
+
+A target configuration describes what is being tested.
+
+Example dimensions:
+
+```text
+model_provider
+model_name
+temperature
+system_prompt_version
+prompt_template_version
+retriever_version
+embedding_model
+top_k
+reranker
+agent_version
+tool_schema_version
+application_commit_sha
+```
+
+This configuration must be stored with each run.
+
+Without configuration capture, experiment results are not reproducible.
+
+---
+
+# 11.4 Experiment Orchestrator
+
+The orchestrator coordinates experiment execution.
+
+Responsibilities:
+
+1. resolve dataset version,
+2. resolve target configuration,
+3. determine evaluator set,
+4. create run records,
+5. fan out case jobs,
+6. monitor completion,
+7. trigger evaluators,
+8. aggregate metrics,
+9. compare against baseline,
+10. invoke regression rules,
+11. finalize run status.
+
+Initial implementation can be simpler than a fully distributed scheduler.
+
+---
+
+# 11.5 Worker Layer
+
+Eval execution will be asynchronous because model calls may take seconds and an experiment may contain hundreds or thousands of cases.
+
+Workers handle:
+
+- target execution,
+- judge calls,
+- embedding calls,
+- RAG metric computation,
+- retryable provider failures.
+
+Proposed early stack:
+
+- Redis
+- Celery or a lightweight queue abstraction
+
+Important requirement:
+
+Worker jobs should be idempotent where practical.
+
+A retry should not create duplicate logical results.
+
+---
+
+# 11.6 Target Adapters
+
+EvalForge should not assume every target is just a raw LLM API call.
+
+The target abstraction should support:
+
+### Raw model target
+
+Input → model → output
+
+### HTTP application target
+
+Input → external endpoint → output
+
+### RAG target
+
+Input → retrieval → generation → output + retrieval trace
+
+### Agent target
+
+Input → planner/tool loop → final output + trajectory
+
+A common internal result shape allows downstream evaluators to work consistently.
+
+---
+
+# 11.7 Trace Collector
+
+A trace is the evidence needed to understand an execution.
+
+For an LLM target:
+
+- normalized input,
+- system prompt identifier,
+- model,
+- response,
+- token usage,
+- latency,
+- provider metadata.
+
+For RAG:
+
+- query,
+- transformed query if any,
+- retrieved chunk IDs,
+- retrieval scores,
+- reranked order,
+- provided context,
+- answer.
+
+For agents:
+
+- task input,
+- reasoning-safe event metadata,
+- tool names,
+- tool arguments,
+- tool outputs,
+- retries,
+- errors,
+- final response.
+
+EvalForge should store operational traces without relying on hidden model chain-of-thought.
+
+---
+
+# 11.8 Evaluator Pipeline
+
+Each case can run through one or more evaluators.
+
+The evaluator interface should conceptually accept:
+
+```text
+EvalCase
+TargetResult
+Optional BaselineResult
+EvaluatorConfig
+```
+
+and return:
+
+```text
+metric_name
+value
+pass/fail/unknown
+confidence
+explanation
+metadata
+evaluator_version
+```
+
+Evaluators should be individually versioned.
+
+If the judge prompt changes, historical results should still record which judge version produced them.
+
+---
+
+# 11.9 Score Aggregator
+
+Individual results need aggregation across:
+
+- entire dataset,
+- category,
+- tag,
+- difficulty,
+- evaluator,
+- criticality.
+
+Example:
+
+```text
+Overall groundedness: 0.92
+Billing groundedness: 0.97
+Refund-policy groundedness: 0.74
+Critical cases passed: 19/20
+```
+
+This prevents strong performance in a large easy category from hiding failures in a small critical category.
+
+---
+
+# 11.10 Regression Engine
+
+The regression engine compares candidate metrics against baseline metrics and configured rules.
+
+It should support:
+
+- absolute thresholds,
+- relative degradation thresholds,
+- category-specific thresholds,
+- critical-case zero-tolerance rules,
+- latency thresholds,
+- cost thresholds,
+- minimum sample requirements.
+
+Example:
+
+```yaml
+gates:
+  - metric: correctness
+    min_score: 0.90
+
+  - metric: groundedness
+    max_regression: 0.03
+
+  - metric: refund_policy_accuracy
+    max_regression: 0.00
+    critical: true
+
+  - metric: p95_latency_ms
+    max_increase_percent: 25
+
+  - metric: estimated_cost_per_case
+    max_increase_percent: 40
+```
+
+---
+
+# 12. Evaluation Dataset Design
+
+A strong eval system depends heavily on dataset quality.
+
+## 12.1 Dataset contents
+
+An eval case may contain:
+
+- unique ID,
+- input,
+- conversation history,
+- expected answer,
+- expected facts,
+- forbidden facts,
+- reference documents,
+- expected citations,
+- expected tools,
+- forbidden tools,
+- expected structured schema,
+- tags,
+- category,
+- priority,
+- difficulty,
+- critical flag,
+- source,
+- notes.
+
+## 12.2 Example conceptual case
+
+```json
+{
+  "id": "refund_014",
+  "category": "billing",
+  "tags": ["refund", "policy", "critical"],
+  "input": "Can I get a refund 30 days after purchase?",
+  "reference_answer": "Refunds are available only within 14 days.",
+  "expected_facts": [
+    "refund window is 14 days"
+  ],
+  "forbidden_facts": [
+    "refund window is 30 days"
+  ],
+  "critical": true
+}
+```
+
+## 12.3 Dataset sources
+
+Cases can come from:
+
+- handcrafted scenarios,
+- known bugs,
+- support transcripts after sanitization,
+- production failures,
+- synthetic generation,
+- domain-expert examples,
+- edge-case brainstorming,
+- adversarial tests.
+
+Synthetic generation should not replace human review for critical cases.
+
+## 12.4 Dataset splitting
+
+Useful logical groups:
+
+- smoke suite,
+- pull-request suite,
+- release suite,
+- critical-policy suite,
+- adversarial suite,
+- production-replay suite.
+
+This lets teams balance evaluation cost and coverage.
+
+---
+
+# 13. Deterministic Evaluators
+
+Deterministic checks should be preferred whenever the expected condition can be explicitly verified.
+
+Examples:
+
+## 13.1 Exact match
+
+Useful for known short answers.
+
+## 13.2 Contains / excludes
+
+Check required or forbidden strings.
+
+## 13.3 Regular expression
+
+Validate formats.
+
+Examples:
+
+- order number,
+- date,
+- identifier,
+- structured field.
+
+## 13.4 JSON-schema validation
+
+Verify machine-readable outputs.
+
+## 13.5 Required fields
+
+Confirm keys exist.
+
+## 13.6 Numeric tolerance
+
+Example:
+
+```text
+expected amount = 12.50
+allowed tolerance = 0.01
+```
+
+## 13.7 Citation presence
+
+Confirm required citations exist.
+
+## 13.8 Tool-call checks
+
+Validate:
+
+- tool selected,
+- tool not selected,
+- argument values,
+- number of calls.
+
+Advantages:
+
+- cheap,
+- fast,
+- reproducible,
+- explainable.
+
+---
+
+# 14. Semantic Evaluators
+
+Semantic evaluators are useful when wording differs but meaning should remain similar.
+
+Potential uses:
+
+- semantic similarity to reference answer,
+- clustering failures,
+- near-duplicate detection,
+- retrieval relevance.
+
+Important limitation:
+
+High embedding similarity does not guarantee factual correctness.
+
+Therefore semantic similarity should generally be one signal, not the sole correctness evaluator.
+
+---
+
+# 15. LLM-as-a-Judge
+
+Some properties require flexible language understanding.
+
+Planned judge dimensions:
+
+- correctness,
+- relevance,
+- completeness,
+- groundedness,
+- instruction following,
+- tone or policy adherence,
+- pairwise preference.
+
+## 15.1 Structured judge output
+
+The judge should return structured fields rather than unstructured prose.
+
+Conceptually:
+
+```json
+{
+  "score": 0.8,
+  "label": "pass",
+  "confidence": 0.86,
+  "reason": "The answer correctly states the 14-day policy.",
+  "evidence": ["Refunds are available within 14 days."]
+}
+```
+
+## 15.2 Judge prompt versioning
+
+Every judge prompt must have a version identifier.
+
+## 15.3 Bias controls
+
+Potential judge failure modes include:
+
+- verbosity preference,
+- ordering bias,
+- self-preference,
+- stylistic bias,
+- inconsistent grading.
+
+Mitigations:
+
+- concise rubrics,
+- structured scoring criteria,
+- randomized A/B ordering for pairwise tests,
+- calibration against humans,
+- repeated evaluation for important cases where justified,
+- deterministic checks before judge calls.
+
+## 15.4 Judge confidence
+
+Judge confidence should be treated cautiously.
+
+A self-reported confidence value is not automatically calibrated.
+
+The more meaningful measure is empirical agreement with human labels.
+
+---
+
+# 16. Pairwise Evaluation
+
+Instead of independently scoring two answers, a judge can compare:
+
+```text
+Response A
+vs.
+Response B
+```
+
+Possible outcomes:
+
+- A better,
+- B better,
+- tie,
+- invalid comparison.
+
+Pairwise evaluation is useful when:
+
+- comparing prompts,
+- comparing models,
+- comparing answer style,
+- evaluating nuanced quality.
+
+Ordering should be randomized to reduce position bias.
+
+---
+
+# 17. RAG Evaluation
+
+RAG evaluation needs to distinguish retrieval quality from generation quality.
+
+## 17.1 Retrieval metrics
+
+Potential metrics:
+
+- Recall@K,
+- Precision@K,
+- Hit Rate,
+- Mean Reciprocal Rank,
+- context relevance,
+- relevant-chunk coverage.
+
+## 17.2 Generation metrics
+
+Potential metrics:
+
+- answer correctness,
+- groundedness,
+- faithfulness to context,
+- citation correctness,
+- completeness.
+
+## 17.3 Failure classification
+
+EvalForge should classify failures conceptually as:
+
+### Retrieval failure
+
+Relevant evidence was not retrieved.
+
+### Ranking failure
+
+Relevant evidence was retrieved but ranked too low or excluded from final context.
+
+### Generation failure
+
+Correct evidence was present, but the model answered incorrectly.
+
+### Citation failure
+
+Answer may be correct but references the wrong source.
+
+This classification is much more actionable than one generic “RAG score.”
+
+## 17.4 RAG trace requirements
+
+Capture:
+
+- source document ID,
+- chunk ID,
+- retrieval score,
+- rank,
+- reranker score,
+- final context inclusion,
+- citations returned.
+
+---
+
+# 18. Agent Evaluation
+
+Agent evaluation is one of the strongest long-term differentiators.
+
+A final answer alone is not enough.
+
+An agent may reach the right answer while:
+
+- calling a forbidden tool,
+- using the wrong account,
+- making unnecessary calls,
+- retrying excessively,
+- providing incorrect arguments,
+- performing actions in the wrong order.
+
+## 18.1 Agent evaluation dimensions
+
+### Task completion
+
+Did the task succeed?
+
+### Tool selection
+
+Was the appropriate tool used?
+
+### Tool arguments
+
+Were arguments correct?
+
+### Required steps
+
+Were mandatory actions performed?
+
+### Forbidden steps
+
+Were disallowed actions avoided?
+
+### Trajectory validity
+
+Did the action sequence follow acceptable logic?
+
+### Efficiency
+
+Were there unnecessary steps?
+
+### Recovery
+
+Did the agent recover correctly from tool failure?
+
+### Final answer
+
+Did the user receive an accurate final response?
+
+## 18.2 Agent trajectory model
+
+Conceptually:
+
+```text
+User Task
+  ↓
+Agent Decision
+  ↓
+Tool Call 1
+  ↓
+Tool Result
+  ↓
+Agent Decision
+  ↓
+Tool Call 2
+  ↓
+Tool Result
+  ↓
+Final Response
+```
+
+The evaluator should operate on observable actions and outputs, not hidden chain-of-thought.
+
+---
+
+# 19. Operational Metrics
+
+Quality must be evaluated together with operational behavior.
+
+Metrics:
+
+- end-to-end latency,
+- p50 latency,
+- p95 latency,
+- p99 latency,
+- prompt tokens,
+- completion tokens,
+- total tokens,
+- estimated cost,
+- provider errors,
+- timeouts,
+- retries.
+
+A new model might improve answer quality 2% while increasing cost 300%.
+
+EvalForge should make that tradeoff visible.
+
+---
+
+# 20. Scoring Model
+
+The platform should avoid pretending that one universal score represents the entire system.
+
+## 20.1 Per-case score
+
+Each evaluator generates its own result.
+
+Example:
+
+```text
+correctness = 1.0
+groundedness = 0.7
+policy = pass
+latency_ms = 1800
+cost_usd = 0.012
+```
+
+## 20.2 Category aggregation
+
+Aggregate by:
+
+- category,
+- tag,
+- priority,
+- evaluator.
+
+## 20.3 Optional composite score
+
+A weighted composite may be supported for convenience.
+
+Example:
+
+```text
+0.40 correctness
+0.30 groundedness
+0.20 completeness
+0.10 instruction following
+```
+
+However, CI gating should still support individual critical metrics.
+
+---
+
+# 21. Regression Detection
+
+Regression detection is the heart of the project.
+
+## 21.1 Paired comparison
+
+Baseline and candidate should run on the same case IDs.
+
+For each case:
+
+```text
+delta = candidate_score - baseline_score
+```
+
+Then aggregate deltas.
+
+## 21.2 Regression types
+
+### Overall regression
+
+Dataset-wide score falls.
+
+### Category regression
+
+A specific category falls.
+
+### Critical-case regression
+
+A critical example fails.
+
+### Operational regression
+
+Cost or latency exceeds tolerance.
+
+### Behavioral regression
+
+Tool usage or policy compliance worsens.
+
+## 21.3 Gate examples
+
+```text
+FAIL if overall correctness < 90%
+
+FAIL if groundedness falls more than 3 percentage points
+
+FAIL if any critical policy test fails
+
+FAIL if p95 latency increases by more than 25%
+
+WARN if cost increases 20–40%
+
+FAIL if cost increases >40%
+```
+
+## 21.4 Statistical support
+
+Later versions can add:
+
+- bootstrap confidence intervals,
+- paired significance testing,
+- minimum sample requirements,
+- uncertainty estimates.
+
+These should not be overused on tiny datasets.
+
+---
+
+# 22. Baseline Management
+
+A baseline is an approved reference configuration.
+
+Potential workflow:
+
+```text
+Candidate Run
+    ↓
+Passes review
+    ↓
+Marked Approved
+    ↓
+Promoted to Baseline
+    ↓
+Future runs compare against it
+```
+
+Store:
+
+- baseline run ID,
+- application commit SHA,
+- model config,
+- prompt version,
+- dataset version,
+- evaluator versions.
+
+Baseline promotion should be explicit.
+
+---
+
+# 23. Experiment Versioning
+
+Every experiment result should be reproducible from stored metadata.
+
+Persist at minimum:
+
+- experiment ID,
+- run ID,
+- dataset version,
+- target version,
+- evaluator versions,
+- model configuration,
+- application commit SHA,
+- timestamp,
+- environment,
+- seed where relevant.
+
+Historical results should not silently change if an evaluator is later updated.
+
+---
+
+# 24. Failure Explorer
+
+A useful evaluation platform must make failures debuggable.
+
+The failure detail page should show:
+
+## Input
+
+Original case input.
+
+## Expected behavior
+
+Reference answer, required facts, forbidden facts, expected tools.
+
+## Baseline result
+
+Output and trace.
+
+## Candidate result
+
+Output and trace.
+
+## Retrieved context
+
+Documents/chunks used.
+
+## Tool trajectory
+
+Tool names, arguments, results.
+
+## Evaluator results
+
+Per-metric scores.
+
+## Judge explanation
+
+Short explanation with evidence.
+
+## Regression information
+
+What changed from baseline.
+
+## Human label
+
+Optional reviewer decision.
+
+---
+
+# 25. Human Review and Judge Calibration
+
+LLM judges are not ground truth.
+
+EvalForge should support human labels.
+
+## 25.1 Human label structure
+
+Example:
+
+```text
+case_id
+dimension
+human_score
+human_label
+reviewer
+notes
+timestamp
+```
+
+## 25.2 Calibration metrics
+
+Potential metrics:
+
+- exact agreement,
+- correlation,
+- confusion matrix,
+- false-positive rate,
+- false-negative rate,
+- Cohen's kappa for categorical labels where appropriate.
+
+## 25.3 Calibration workflow
+
+```text
+Automated Judge
+       │
+       ▼
+Sample Results
+       │
+       ▼
+Human Review
+       │
+       ▼
+Agreement Analysis
+       │
+       ▼
+Judge Prompt / Rubric Update
+       │
+       ▼
+New Evaluator Version
+```
+
+---
+
+# 26. Adaptive Eval Generation
+
+The eval suite should improve when real failures appear.
+
+Proposed future workflow:
+
+```text
+Production Incident
+        ↓
+Trace captured
+        ↓
+Failure classified
+        ↓
+Candidate eval case generated
+        ↓
+Human review
+        ↓
+PII / sensitive data check
+        ↓
+Added to dataset
+        ↓
+Included in future regression runs
+```
+
+Important rule:
+
+Automatically generated cases should normally require approval before entering critical suites.
+
+---
+
+# 27. Production Trace Ingestion
+
+Later versions may ingest traces from production systems.
+
+Use cases:
+
+- identify recurring failures,
+- replay known incidents,
+- mine difficult cases,
+- detect distribution shifts,
+- build new eval sets.
+
+Production data handling requires stronger privacy controls than synthetic eval data.
+
+---
+
+# 28. Proposed API Surface
+
+The exact routes may evolve, but the system should conceptually expose APIs like:
+
+## Datasets
+
+```text
+POST   /datasets
+GET    /datasets
+GET    /datasets/{id}
+POST   /datasets/{id}/cases
+POST   /datasets/{id}/versions
+GET    /datasets/{id}/versions/{version}
+```
+
+## Targets
+
+```text
+POST   /targets
+GET    /targets
+GET    /targets/{id}
+POST   /targets/{id}/versions
+```
+
+## Experiments
+
+```text
+POST   /experiments
+GET    /experiments
+GET    /experiments/{id}
+POST   /experiments/{id}/run
+```
+
+## Runs
+
+```text
+GET    /runs/{id}
+GET    /runs/{id}/cases
+GET    /runs/{id}/metrics
+GET    /runs/{id}/regressions
+```
+
+## Human labels
+
+```text
+POST   /cases/{result_id}/labels
+GET    /cases/{result_id}/labels
+```
+
+## Baselines
+
+```text
+POST   /runs/{id}/promote-baseline
+GET    /baselines
+```
+
+---
+
+# 29. CLI Plan
+
+The CLI should make EvalForge usable without the web UI.
+
+Possible commands:
+
+```bash
+evalforge init
+evalforge dataset validate evals.jsonl
+evalforge run --config evalforge.yaml
+evalforge compare <baseline-run> <candidate-run>
+evalforge report <run-id>
+evalforge baseline promote <run-id>
+```
+
+CI should use the same underlying APIs / engine as the CLI.
+
+---
+
+# 30. Configuration File
+
+A repository-level config may look conceptually like:
+
+```yaml
+project: support-agent
+
+dataset:
+  path: evals/support.jsonl
+
+target:
+  type: http
+  endpoint: http://localhost:8000/chat
+
+evaluators:
+  - name: policy_check
+    type: deterministic
+
+  - name: groundedness
+    type: llm_judge
+    rubric: groundedness_v1
+
+  - name: semantic_similarity
+    type: embedding
+
+gates:
+  - metric: correctness
+    min_score: 0.90
+
+  - metric: groundedness
+    max_regression: 0.03
+
+  - tag: critical
+    max_failed_cases: 0
+
+operations:
+  max_p95_latency_increase_percent: 25
+  max_cost_increase_percent: 40
+```
+
+The final syntax should be simple enough to review in code.
+
+---
+
+# 31. Database Design
+
+PostgreSQL is the primary persistence layer.
+
+Proposed tables:
+
+## projects
+
+- id
+- name
+- created_at
+
+## datasets
+
+- id
+- project_id
+- name
+- description
+- created_at
+
+## dataset_versions
+
+- id
+- dataset_id
+- version
+- content_hash
+- created_at
+
+## eval_cases
+
+- id
+- dataset_version_id
+- external_case_id
+- input
+- reference_output
+- metadata
+- critical
+
+## targets
+
+- id
+- project_id
+- name
+- type
+
+## target_versions
+
+- id
+- target_id
+- config_json
+- config_hash
+- commit_sha
+
+## evaluator_definitions
+
+- id
+- name
+- type
+- version
+- config_json
+
+## experiments
+
+- id
+- project_id
+- dataset_version_id
+- created_at
+
+## runs
+
+- id
+- experiment_id
+- target_version_id
+- status
+- started_at
+- completed_at
+
+## case_results
+
+- id
+- run_id
+- eval_case_id
+- output
+- trace_json
+- latency_ms
+- token_usage
+- estimated_cost
+
+## evaluator_results
+
+- id
+- case_result_id
+- evaluator_definition_id
+- metric_name
+- numeric_value
+- categorical_value
+- passed
+- confidence
+- explanation
+
+## regression_results
+
+- id
+- candidate_run_id
+- baseline_run_id
+- metric_name
+- scope
+- baseline_value
+- candidate_value
+- delta
+- gate_status
+
+## human_labels
+
+- id
+- case_result_id
+- dimension
+- score
+- label
+- notes
+- reviewer_id
+- created_at
+
+## baselines
+
+- id
+- project_id
+- run_id
+- active
+- created_at
+
+---
+
+# 32. Storage Strategy
+
+## PostgreSQL
+
+Use for structured metadata and results.
+
+## Object storage later
+
+Large artifacts may eventually move to object storage:
+
+- long traces,
+- uploaded datasets,
+- attachments,
+- exported reports.
+
+## Redis
+
+Use for:
+
+- queue coordination,
+- short-lived job status,
+- caching,
+- distributed locks if needed.
+
+Redis should not be the durable source of truth for experiment results.
+
+---
+
+# 33. Model Provider Abstraction
+
+EvalForge should avoid binding core evaluation logic to one model provider.
+
+A normalized model-call interface should expose:
+
+```text
+messages
+model
+temperature
+structured_output_schema
+timeout
+metadata
+```
+
+Normalized result:
+
+```text
+text
+structured_output
+usage
+latency
+provider_request_id
+error
+```
+
+A provider abstraction such as LiteLLM can reduce integration work, while EvalForge retains its own domain models.
+
+---
+
+# 34. Evaluator Extensibility
+
+Evaluators should behave like plugins.
+
+Conceptually:
+
+```text
+Evaluator
+ ├── name
+ ├── version
+ ├── required_inputs
+ ├── evaluate()
+ └── output_schema
+```
+
+Example evaluator classes:
+
+```text
+ExactMatchEvaluator
+RegexEvaluator
+JsonSchemaEvaluator
+EmbeddingSimilarityEvaluator
+LLMJudgeEvaluator
+PairwiseJudgeEvaluator
+GroundednessEvaluator
+RetrievalRecallEvaluator
+ToolCallEvaluator
+TrajectoryEvaluator
+LatencyEvaluator
+CostEvaluator
+```
+
+This design allows future custom evaluators without rewriting the experiment engine.
+
+---
+
+# 35. Observability
+
+EvalForge itself should be observable.
+
+Use OpenTelemetry-style traces for:
+
+- API requests,
+- experiment orchestration,
+- model calls,
+- judge calls,
+- retrieval calls,
+- evaluator execution,
+- worker jobs.
+
+Metrics:
+
+- experiment duration,
+- worker utilization,
+- provider failure rate,
+- judge-call count,
+- queue depth,
+- evaluation cost.
+
+Logs should include stable IDs such as:
+
+- experiment_id,
+- run_id,
+- case_id,
+- evaluator_id.
+
+---
+
+# 36. Security and Privacy
+
+Even as a portfolio project, the architecture should acknowledge realistic security needs.
+
+## 36.1 Secrets
+
+API keys must never be stored in source control.
+
+Use environment variables or secret managers.
+
+## 36.2 Sensitive eval data
+
+Production-derived datasets may contain:
+
+- PII,
+- account data,
+- internal documents,
+- regulated information.
+
+Future versions should support:
+
+- redaction,
+- dataset access controls,
+- retention policies,
+- encryption.
+
+## 36.3 Prompt injection
+
+RAG and agent evaluations should include prompt-injection cases.
+
+## 36.4 Tool safety
+
+Agent eval suites should test forbidden or high-risk tool operations.
+
+## 36.5 Logging
+
+Do not log secrets or raw credentials.
+
+---
+
+# 37. Web Dashboard
+
+The dashboard should focus on evaluation workflows rather than chat.
+
+## Page 1 — Projects
+
+Shows available projects.
+
+## Page 2 — Datasets
+
+- versions,
+- case count,
+- categories,
+- tags,
+- critical-case count.
+
+## Page 3 — Experiments
+
+- target configuration,
+- dataset version,
+- status,
+- overall metrics,
+- baseline comparison.
+
+## Page 4 — Compare Runs
+
+Side-by-side:
+
+```text
+Metric            Baseline   Candidate   Delta
+Correctness       0.88       0.92        +0.04
+Groundedness      0.94       0.91        -0.03
+Latency p95       2.0s       2.6s        +30%
+```
+
+## Page 5 — Failure Explorer
+
+Individual case debugging.
+
+## Page 6 — Judge Calibration
+
+Human vs. automated evaluator agreement.
+
+---
+
+# 38. GitHub Actions Integration
+
+A core project goal is making evals behave like automated quality tests.
+
+Conceptual workflow:
+
+```text
+Pull Request
+    ↓
+Build application
+    ↓
+Run EvalForge PR suite
+    ↓
+Compare to baseline
+    ↓
+Apply quality gates
+    ↓
+Publish summary
+    ↓
+PASS / FAIL
+```
+
+Example output:
+
+```text
+EvalForge Quality Gate: FAILED
+
+Dataset: support-pr-suite@v12
+Baseline: run_842
+Candidate: run_911
+
+Metric                 Baseline   Candidate   Delta   Gate
+Correctness             92%         94%       +2%    PASS
+Groundedness            95%         94%       -1%    PASS
+Refund-policy accuracy  96%         78%      -18%    FAIL
+p95 latency             1.8s        2.1s      +17%   PASS
+
+Critical failures:
+- refund_014
+- refund_021
+
+Result: ❌ BLOCK MERGE
+```
+
+---
+
+# 39. Pull Request vs. Release Suites
+
+Running every possible eval on every commit may be expensive.
+
+## PR suite
+
+Small, high-signal suite.
+
+Includes:
+
+- critical cases,
+- recent regressions,
+- representative cases.
+
+Goal:
+
+Fast developer feedback.
+
+## Release suite
+
+Larger comprehensive suite.
+
+Includes:
+
+- broad category coverage,
+- adversarial cases,
+- long-running agent tasks,
+- expensive judges.
+
+Goal:
+
+Release confidence.
+
+---
+
+# 40. Cost Control
+
+Model-based evaluation can itself become expensive.
+
+Strategies:
+
+- deterministic checks first,
+- run judges only when needed,
+- smaller PR suites,
+- caching identical judge requests,
+- configurable evaluator selection,
+- batch embedding requests,
+- cost limits per experiment,
+- early stop after severe gate failure where appropriate.
+
+The dashboard should show evaluation cost separately from target application cost.
+
+---
+
+# 41. Reliability and Failure Handling
+
+The runner must distinguish:
+
+## Target failure
+
+Application failed.
+
+## Provider failure
+
+Model API unavailable or rate limited.
+
+## Evaluator failure
+
+Judge/evaluator failed.
+
+## Infrastructure failure
+
+Worker or queue issue.
+
+These should not be silently converted into low quality scores.
+
+Possible result statuses:
+
+```text
+PASS
+FAIL
+ERROR
+SKIPPED
+UNKNOWN
+```
+
+Retries should apply only to retryable failures.
+
+---
+
+# 42. Testing Strategy for EvalForge Itself
+
+EvalForge is a testing platform and therefore needs strong tests.
+
+## Unit tests
+
+Test:
+
+- evaluators,
+- scoring,
+- threshold logic,
+- config parsing,
+- normalization.
+
+## Integration tests
+
+Test:
+
+- API + DB,
+- queue + worker,
+- model adapter mocks,
+- experiment lifecycle.
+
+## Golden tests
+
+Use fixed traces and expected evaluator outputs.
+
+## Regression tests
+
+Every fixed EvalForge bug becomes a test.
+
+## End-to-end tests
+
+Run:
+
+```text
+dataset → target → evaluators → comparison → CI result
+```
+
+with fake model providers to keep tests deterministic.
+
+---
+
+# 43. Proposed Repository Structure
+
+No code is being added yet, but the intended structure is:
+
+```text
+EvalForge/
+│
+├── README.md
+├── TECHNICAL_DESIGN.md
+├── LICENSE
+├── pyproject.toml
+├── docker-compose.yml
+│
+├── backend/
+│   ├── app/
+│   │   ├── api/
+│   │   ├── core/
+│   │   ├── db/
+│   │   ├── datasets/
+│   │   ├── experiments/
+│   │   ├── runners/
+│   │   ├── targets/
+│   │   ├── evaluators/
+│   │   ├── regression/
+│   │   ├── traces/
+│   │   └── workers/
+│   └── tests/
+│
+├── frontend/
+│   ├── app/
+│   ├── components/
+│   └── lib/
+│
+├── cli/
+│
+├── examples/
+│   ├── support-bot/
+│   ├── rag-demo/
+│   └── agent-demo/
+│
+├── evals/
+│   └── sample.jsonl
+│
+└── .github/
+    └── workflows/
+        └── evalforge.yml
+```
+
+---
+
+# 44. Technology Choices and Rationale
+
+## Python
+
+Why:
+
+- dominant ecosystem for LLM and ML tooling,
+- strong async/API support,
+- broad evaluation-library compatibility.
+
+## FastAPI
+
+Why:
+
+- typed request/response models,
+- good Python developer experience,
+- async support,
+- automatic API documentation.
+
+## Pydantic
+
+Why:
+
+- strong schema validation,
+- useful for structured LLM outputs,
+- clear configuration models.
+
+## PostgreSQL
+
+Why:
+
+- relational structure fits experiments and versioning,
+- JSONB can store flexible metadata,
+- reliable and mature.
+
+## SQLAlchemy
+
+Why:
+
+- standard Python persistence abstraction,
+- migrations can later use Alembic.
+
+## Redis
+
+Why:
+
+- common worker coordination layer,
+- fast transient state.
+
+## Background worker queue
+
+Why:
+
+- evals are long-running,
+- model calls should not block HTTP request lifecycles.
+
+## LiteLLM-style abstraction
+
+Why:
+
+- reduces model-provider-specific code,
+- allows cross-provider experiments.
+
+## OpenTelemetry
+
+Why:
+
+- vendor-neutral observability standard,
+- maps naturally to LLM/RAG/agent execution traces.
+
+## Next.js + TypeScript + React
+
+Why:
+
+- strong ecosystem for interactive dashboards,
+- easy deployment,
+- typed UI code.
+
+## Tailwind CSS
+
+Why:
+
+- fast dashboard UI development.
+
+## Docker
+
+Why:
+
+- reproducible local environment,
+- easy multi-service setup.
+
+## GitHub Actions
+
+Why:
+
+- directly demonstrates the core “evals as CI tests” idea.
+
+## pytest
+
+Why:
+
+- mature Python testing ecosystem.
+
+---
+
+# 45. Existing Eval Ecosystem Integration
+
+EvalForge should learn from and interoperate with the ecosystem without becoming only a wrapper.
+
+Potential integrations:
+
+- Ragas for RAG-oriented metrics,
+- DeepEval-style evaluator patterns,
+- Inspect AI-style task evaluation,
+- OpenTelemetry-compatible tracing,
+- provider SDKs through an abstraction layer.
+
+EvalForge's original engineering focus remains:
+
+- experiment orchestration,
+- dataset/version management,
+- heterogeneous evaluator pipelines,
+- regression logic,
+- quality gates,
+- failure analysis,
+- judge calibration,
+- production-failure feedback loops.
+
+---
+
+# 46. V0 — Design Validation
+
+Before building the complete backend, validate the project with a minimal vertical slice.
+
+Goal:
+
+Prove the full concept.
+
+Deliverable:
+
+```text
+small JSONL dataset
+      ↓
+two target configurations
+      ↓
+deterministic + judge evaluators
+      ↓
+baseline comparison
+      ↓
+terminal regression report
+```
+
+No dashboard is required yet.
+
+---
+
+# 47. V1 — Core Evaluation Engine
+
+V1 should implement the first real usable workflow.
+
+## Features
+
+- dataset schema,
+- JSONL import,
+- target interface,
+- raw LLM target,
+- deterministic evaluators,
+- LLM judge evaluator,
+- experiment runner,
+- PostgreSQL persistence,
+- baseline vs. candidate comparison,
+- regression rules,
+- CLI report.
+
+## Acceptance criteria
+
+A developer can:
+
+1. define 20+ cases,
+2. run two model/prompt configurations,
+3. receive case-level metrics,
+4. see aggregate metrics,
+5. detect a configured regression,
+6. receive a non-zero CLI exit code when a gate fails.
+
+---
+
+# 48. V2 — CI, RAG, and Dashboard
+
+## Features
+
+- GitHub Actions workflow,
+- RAG target adapter,
+- retrieval trace capture,
+- Recall@K / Precision@K,
+- groundedness,
+- faithfulness,
+- cost tracking,
+- latency tracking,
+- dashboard,
+- compare-runs page,
+- failure explorer.
+
+## Acceptance criteria
+
+A pull request can trigger a reduced eval suite and fail automatically when:
+
+- a critical case fails,
+- a category metric regresses too far,
+- cost/latency exceeds configured tolerance.
+
+---
+
+# 49. V3 — Agent Evals and Calibration
+
+## Features
+
+- agent target adapter,
+- tool-call traces,
+- trajectory evaluator,
+- task-completion evaluator,
+- human review,
+- judge-vs-human agreement dashboard,
+- evaluator versioning,
+- pairwise evaluation.
+
+## Acceptance criteria
+
+The platform can determine:
+
+- whether an agent completed a task,
+- whether correct tools were used,
+- whether forbidden steps occurred,
+- whether judge scores agree with reviewed human labels.
+
+---
+
+# 50. V4 — Production Feedback Loop
+
+## Features
+
+- production trace ingestion,
+- incident replay,
+- failure clustering,
+- candidate eval generation,
+- human approval workflow,
+- adaptive eval-set growth.
+
+Goal:
+
+Turn real-world failures into permanent regression coverage.
+
+---
+
+# 51. Detailed Build Order
+
+Recommended implementation sequence:
+
+## Phase A — Domain model
+
+1. define eval-case schema,
+2. define target-result schema,
+3. define evaluator-result schema,
+4. define experiment/run schema,
+5. define regression-rule schema.
+
+## Phase B — Local engine
+
+6. JSONL loader,
+7. target interface,
+8. mock target,
+9. deterministic evaluators,
+10. scoring and aggregation,
+11. baseline comparison,
+12. terminal report.
+
+## Phase C — Real model support
+
+13. provider abstraction,
+14. structured model calls,
+15. judge evaluator,
+16. token/latency/cost capture.
+
+## Phase D — Persistence
+
+17. PostgreSQL schema,
+18. experiment persistence,
+19. run persistence,
+20. dataset versioning.
+
+## Phase E — API and workers
+
+21. FastAPI service,
+22. async worker,
+23. job status,
+24. retries and error handling.
+
+## Phase F — CI
+
+25. config file,
+26. CLI exit codes,
+27. GitHub Actions example,
+28. CI summary report.
+
+## Phase G — RAG
+
+29. retrieval trace schema,
+30. retrieval evaluators,
+31. groundedness,
+32. RAG failure classification.
+
+## Phase H — UI
+
+33. project page,
+34. experiment list,
+35. compare page,
+36. failure explorer.
+
+## Phase I — Agent support
+
+37. trajectory schema,
+38. tool-call evaluators,
+39. task evaluator,
+40. trajectory inspection UI.
+
+## Phase J — Calibration
+
+41. human labels,
+42. agreement metrics,
+43. evaluator-version comparison.
+
+---
+
+# 52. Example End-to-End Demo Scenario
+
+A strong portfolio demo should use a realistic support RAG assistant.
+
+## Baseline
+
+```text
+Model A
+Prompt V1
+Retriever V1
+Top-k = 5
+```
+
+## Candidate
+
+```text
+Model B
+Prompt V2
+Retriever V2
+Top-k = 8
+```
+
+## Dataset
+
+100 cases:
+
+- 30 billing,
+- 25 account access,
+- 20 technical troubleshooting,
+- 15 refunds,
+- 10 adversarial / prompt injection.
+
+## Result
+
+```text
+Overall correctness       84% → 91%
+Groundedness              88% → 94%
+Retrieval Recall@5        79% → 90%
+Refund accuracy           96% → 78%  ❌
+Prompt-injection defense  90% → 95%
+Latency                   1.8s → 2.4s
+Cost/request              $0.012 → $0.018
+```
+
+EvalForge should block the candidate because refund accuracy is a critical metric even though overall quality improved.
+
+This demo clearly communicates why category-aware regression testing matters.
+
+---
+
+# 53. Example CI Decision
+
+```text
+Experiment: exp_202
+Baseline: run_842
+Candidate: run_911
+Dataset: support-release-v12
+
+PASS:
+- overall correctness +7%
+- groundedness +6%
+- retrieval recall +11%
+- injection defense +5%
+
+FAIL:
+- refund accuracy -18%
+
+WARN:
+- latency +33%
+- cost +50%
+
+Final decision:
+❌ QUALITY GATE FAILED
+Reason:
+Critical metric "refund accuracy" exceeded allowed regression threshold.
+```
+
+---
+
+# 54. Dashboard Success Criteria
+
+The dashboard is successful if a developer can answer these questions quickly:
+
+1. What changed?
+2. Which metrics improved?
+3. Which metrics regressed?
+4. Which categories are affected?
+5. Which exact cases failed?
+6. What did baseline answer?
+7. What did candidate answer?
+8. What context was retrieved?
+9. What tools were called?
+10. Why did the evaluator mark it as a failure?
+11. Did a human agree?
+12. What was the cost and latency tradeoff?
+
+---
+
+# 55. Project Success Metrics
+
+Technical success can be judged by whether EvalForge can:
+
+- reproduce an experiment,
+- compare two system versions,
+- detect a known injected regression,
+- separate RAG retrieval failure from generation failure,
+- fail CI correctly,
+- produce case-level evidence,
+- track cost and latency,
+- measure judge-human agreement,
+- replay a production-style failure.
+
+---
+
+# 56. Risks and Mitigations
+
+## Risk — LLM judge unreliability
+
+Mitigation:
+
+- deterministic checks first,
+- clear rubrics,
+- human calibration,
+- evaluator versioning.
+
+## Risk — Eval overfitting
+
+Teams may optimize only for the known eval set.
+
+Mitigation:
+
+- rotating holdout sets,
+- production-derived cases,
+- adversarial suites.
+
+## Risk — High evaluation cost
+
+Mitigation:
+
+- tiered PR/release suites,
+- caching,
+- selective judges,
+- deterministic checks.
+
+## Risk — False CI failures
+
+Mitigation:
+
+- minimum sample sizes,
+- explicit thresholds,
+- warning vs. blocking gates,
+- human override workflow later.
+
+## Risk — Data leakage
+
+Mitigation:
+
+- access control,
+- redaction,
+- secret handling,
+- sanitized production traces.
+
+## Risk — Scope explosion
+
+Mitigation:
+
+Build V1 vertical slice before RAG, agents, and production monitoring.
+
+---
+
+# 57. Known Limitations
+
+Even a mature EvalForge cannot prove that an AI system is always correct.
+
+Limitations include:
+
+- eval-set coverage,
+- judge bias,
+- stochastic model behavior,
+- domain-specific correctness requirements,
+- hidden real-world edge cases,
+- changing model-provider behavior,
+- imperfect human labels.
+
+EvalForge should provide stronger evidence and regression protection, not claim mathematical certainty.
+
+---
+
+# 58. Future Extensions
+
+Potential future directions:
+
+- automatic adversarial case generation,
+- multimodal evals,
+- speech / image model evals,
+- red-team suites,
+- model-router evaluation,
+- online A/B evaluation,
+- drift detection,
+- dataset coverage analysis,
+- failure clustering,
+- evaluator recommendation,
+- custom organization policies,
+- RBAC,
+- hosted SaaS deployment,
+- self-hosted enterprise mode,
+- SDKs for Python and TypeScript,
+- IDE integration,
+- pull-request annotations,
+- benchmark import/export.
+
+---
+
+# 59. What Makes EvalForge Technically Interesting
+
+EvalForge should not be presented as:
+
+> “I made a UI that asks one LLM to rate another LLM.”
+
+The real engineering value comes from combining:
+
+- versioned eval datasets,
+- model/provider abstraction,
+- execution traces,
+- heterogeneous evaluator pipelines,
+- RAG-specific diagnostics,
+- agent trajectory evaluation,
+- baseline/candidate paired comparison,
+- category-level regression detection,
+- cost and latency tradeoffs,
+- CI/CD quality gates,
+- human judge calibration,
+- adaptive production feedback loops.
+
+That makes the project an AI reliability and infrastructure system rather than a simple LLM wrapper.
+
+---
+
+# 60. Resume-Level Technical Narrative
+
+Once implemented, the project should support a strong engineering story such as:
+
+> Built EvalForge, a continuous evaluation and regression-testing platform for LLM, RAG, and agent applications. Designed versioned eval datasets, deterministic and model-based evaluators, RAG and tool-trajectory metrics, baseline/candidate regression gates, cost/latency tracking, and GitHub Actions integration to block quality regressions before deployment.
+
+The exact resume bullet should use only features that are actually implemented and measured.
+
+---
+
+# 61. Final Definition of Done for the Portfolio Version
+
+The portfolio version is complete when a reviewer can clone the repository and understand or run a demo showing:
+
+1. a realistic eval dataset,
+2. a baseline AI configuration,
+3. a candidate configuration,
+4. deterministic evaluation,
+5. LLM-judge evaluation,
+6. RAG evaluation,
+7. at least one agent/tool-use evaluation,
+8. case-level traces,
+9. baseline/candidate metric comparison,
+10. a deliberately introduced regression,
+11. a GitHub Actions quality gate that catches it,
+12. a dashboard showing the failed cases,
+13. cost and latency comparison,
+14. human-reviewed labels for a small calibration set,
+15. documentation explaining the architecture and tradeoffs.
+
+That is the standard the project should aim for.
+
+---
+
+# 62. Implementation Rule
+
+Do **not** build every advanced feature at once.
+
+The guiding sequence is:
+
+> **Make one complete eval loop work first. Then make it richer.**
+
+The first end-to-end loop is:
+
+```text
+Dataset
+  ↓
+Baseline + Candidate
+  ↓
+Execute
+  ↓
+Evaluate
+  ↓
+Compare
+  ↓
+Detect Regression
+  ↓
+Fail or Pass CI
+```
+
+Everything else should extend that core without breaking its simplicity.
+
+---
+
+# 63. Final Product Vision
+
+EvalForge should eventually feel like:
+
+> **unit tests + experiment tracking + observability + CI quality gates for probabilistic AI systems.**
+
+A developer should be able to change a prompt, model, retriever, or agent workflow and receive an evidence-backed answer to:
+
+> **What improved, what regressed, why, and is this safe to ship?**
