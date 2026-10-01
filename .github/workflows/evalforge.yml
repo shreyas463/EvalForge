@@ -1,0 +1,83 @@
+name: EvalForge Core
+
+on:
+  push:
+    branches: [main, 'feat/**']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  core:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11', '3.12', '3.13', '3.14']
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: evalforge
+          POSTGRES_PASSWORD: evalforge_test_only
+          POSTGRES_DB: evalforge_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U evalforge -d evalforge_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      EVALFORGE_TEST_DATABASE_URL: postgresql+psycopg://evalforge:evalforge_test_only@localhost:5432/evalforge_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+      - name: Install built package and test dependencies
+        run: python -m pip install '.[dev,postgres]'
+      - name: Check style
+        run: |
+          ruff check src tests
+          ruff format --check src tests
+      - name: Unit, integration, and PostgreSQL tests
+        run: pytest --cov=evalforge --cov-fail-under=90 --cov-report=term-missing --cov-report=xml
+      - name: Passing offline quality gate
+        run: evalforge run --config examples/passing.json
+      - name: Verify injected regression blocks CI
+        shell: bash
+        run: |
+          set +e
+          evalforge run --config examples/regression.json
+          status=$?
+          set -e
+          if [ "$status" -ne 1 ]; then
+            echo "Expected regression exit 1, got $status"
+            exit 1
+          fi
+      - name: Publish regression evidence
+        if: always()
+        shell: bash
+        run: |
+          for report in .evalforge/*/report.txt; do
+            if [ -f "$report" ]; then
+              echo '```text' >> "$GITHUB_STEP_SUMMARY"
+              cat "$report" >> "$GITHUB_STEP_SUMMARY"
+              echo '```' >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
+      - name: Upload run evidence and coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: evalforge-python-${{ matrix.python }}
+          path: |
+            .evalforge/*/*.json
+            .evalforge/*/report.txt
+            coverage.xml
+          include-hidden-files: true
+          if-no-files-found: warn
