@@ -1,0 +1,59 @@
+{
+  "dataset": "cases.jsonl",
+  "dataset_name": "support-application",
+  "baseline": {
+    "kind": "local",
+    "name": "support-policy-v1",
+    "callable": "evalforge.demos.support:answer_case",
+    "parameters": {
+      "refund_window": 14
+    }
+  },
+  "candidate": {
+    "kind": "local",
+    "name": "support-policy-v2",
+    "callable": "evalforge.demos.support:answer_case",
+    "parameters": {
+      "refund_window": 30
+    }
+  },
+  "evaluators": [
+    {
+      "kind": "contains",
+      "metric": "policy_facts",
+      "options": {
+        "case_sensitive": false
+      }
+    },
+    {
+      "kind": "excludes",
+      "metric": "forbidden_claims",
+      "options": {
+        "case_sensitive": false
+      }
+    }
+  ],
+  "gates": [
+    {
+      "metric": "policy_facts",
+      "min_score": 0.9,
+      "max_regression": 0.05
+    },
+    {
+      "metric": "policy_facts",
+      "category": "refunds",
+      "critical": true,
+      "min_samples": 2
+    },
+    {
+      "metric": "forbidden_claims",
+      "critical": true
+    }
+  ],
+  "execution": {
+    "concurrency": 2,
+    "max_seconds": 120,
+    "max_provider_requests": 40
+  },
+  "output_dir": "../../.evalforge"
+}

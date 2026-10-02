@@ -4,7 +4,7 @@
 
 EvalForge runs paired baseline and candidate targets against a versioned JSONL dataset, preserves case-level evidence, scores outputs, and blocks configured regressions. Category and critical-case gates catch failures that an overall average can hide.
 
-**Status: V0/V1 core engine implemented.** This release includes the local CLI, provider-backed model/judge interfaces, JSON artifacts, PostgreSQL snapshot persistence, and a GitHub Actions workflow. The dashboard, RAG/agent evaluators, API/worker service, semantic similarity, human calibration, and production ingestion remain planned.
+**Status: core engine and reliability milestone implemented (0.2.0).** This release includes the local CLI, approved baselines, bounded execution and retries, provider-backed model/judge interfaces, versioned PostgreSQL persistence, and a support-application regression demo. The dashboard, RAG/agent evaluators, API/worker service, semantic similarity, human calibration, and production ingestion remain planned.
 
 ## Quick start
 
@@ -33,6 +33,23 @@ Candidate: "Refunds are available within 30 days."
 These are explicit offline fixture responses for 24 fictional support-policy cases. They demonstrate the engine; they are not model-generated answers or a working support assistant.
 
 Each invocation saves a new directory under `.evalforge/` containing `baseline.json`, `candidate.json`, `comparison.json`, `experiment.json`, `metrics.json`, and `report.txt`. Paths in configuration are relative to the config file. `--output-dir` overrides the artifact root.
+
+## Run the support application demo
+
+```bash
+python -m evalforge.demos.support 'Can I get a refund after 30 days?'
+python -m evalforge.demos.workflow
+```
+
+This separate demo runs a real rule-based FAQ application that reads questions and its own policy, validates and approves a baseline, then blocks a candidate with an incorrect 30-day refund policy. It does not use expected answers as target responses. The wrapper exits 0 only when the underlying candidate evaluation exits 1 and the expected refund-case regression is established.
+
+The [support demo guide](examples/support/README.md) also covers two provider-backed prompt versions and an LLM judge:
+
+```bash
+python -m evalforge.demos.workflow --live --model YOUR_CHAT_MODEL --judge-model YOUR_JUDGE_MODEL
+```
+
+Live mode requires a configured credential and compatible model IDs, and makes paid calls. This session had no credential, so no live calls have been validated. Both the offline workflow and the complete live HTTP path are covered by controlled tests; CI runs the offline application workflow.
 
 ## What works today
 
@@ -100,7 +117,7 @@ def respond(case: EvalCase) -> str:
 {"kind":"local","name":"application-v1","callable":"my_app.eval_target:respond"}
 ```
 
-Install your application package or set `PYTHONPATH` so the module is importable. Local target configuration executes Python code and should come from trusted sources. The module file hash is recorded when available; it is not a complete dependency/environment fingerprint.
+Optional `parameters` are recorded in target configuration and passed as keyword arguments to the callable. Install your application package or set `PYTHONPATH` so the module is importable. Local target configuration executes Python code and should come from trusted sources. The module file hash is recorded when available; it is not a complete dependency/environment fingerprint.
 
 ### Model targets and judges
 
@@ -110,7 +127,7 @@ In `examples/chat-judge.json`, replace `YOUR_CHAT_MODEL` and `YOUR_JUDGE_MODEL` 
 evalforge run --config examples/chat-judge.json
 ```
 
-The adapter uses `/chat/completions`, temperature, text responses, and JSON object mode for judges, following the [Chat Completions API contract](https://developers.openai.com/api/reference/resources/chat). Models/endpoints must support those options. There are no native Anthropic/Gemini, Responses API, streaming, tool-call, or multimodal adapters in this release. Provider and judge behavior is tested with controlled HTTP/structured fixtures; **live paid API calls have not been validated**. The chat example is a starting configuration, not a promised passing benchmark.
+Chat targets can use `system_prompt_file` (relative to the config file) instead of inline `system_prompt`; the prompt contents and SHA-256 hash are saved with the run. The adapter uses `/chat/completions`, temperature, text responses, and JSON object mode for judges, following the [Chat Completions API contract](https://developers.openai.com/api/reference/resources/chat). Models/endpoints must support those options. There are no native Anthropic/Gemini, Responses API, streaming, tool-call, or multimodal adapters in this release. Provider and judge behavior is tested with controlled HTTP/structured fixtures; **live paid API calls have not been validated**. The chat example is a starting configuration, not a promised passing benchmark.
 
 Token counts come from provider usage. Cost remains unknown unless both `input_cost_per_million` and `output_cost_per_million` are supplied and usage is returned. Prices are user-configured estimates; no pricing is hardcoded. Judge usage/cost is recorded separately from target cost. Keys are read from the environment and are not stored in run configuration. HTTP errors exclude response bodies and credential values.
 
@@ -188,7 +205,7 @@ ruff check src tests
 ruff format --check src tests
 ```
 
-To run the PostgreSQL integration test locally, set `EVALFORGE_TEST_DATABASE_URL` to a disposable PostgreSQL database. Without it, that test is explicitly skipped. The [GitHub Actions workflow](.github/workflows/evalforge.yml) runs Python 3.11–3.14, a PostgreSQL service, coverage/style checks, installed-package demos, and a negative regression test. Reports and JSON evidence are uploaded as artifacts and included in the job summary. The negative fixture is expected to fail with exit 1; any other exit fails the workflow. To gate your own application, replace the passing fixture command with your application's configured suite and retain its exit code.
+To run the PostgreSQL integration test locally, set `EVALFORGE_TEST_DATABASE_URL` to a disposable PostgreSQL database. Without it, that test is explicitly skipped. The [GitHub Actions workflow](.github/workflows/evalforge.yml) runs Python 3.11–3.14, a PostgreSQL service, coverage/style checks, installed-package demos, the approved-baseline support-application workflow, and a negative regression test. Reports and JSON evidence are uploaded as artifacts and included in the job summary. The negative fixture is expected to fail with exit 1; any other exit fails the workflow. To gate your own application, replace the passing fixture command with your application's configured suite and retain its exit code.
 
 ## Architecture and boundaries
 

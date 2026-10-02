@@ -6,9 +6,9 @@
 ---
 
 
-# Implementation Ledger — Core Release 0.1.0 and Baseline/Migration Extension
+# Implementation Ledger — Release 0.2.0
 
-The requested V0/V1 vertical slice is implemented as a Python library/CLI. The following 63 sections preserve the long-term product design; statements about services, advanced evaluators, or UI below describe **planned** functionality unless listed as implemented here.
+The requested V0/V1 vertical slice and the baseline/reliability/application-demo milestone are implemented as a Python library/CLI. The following 63 sections preserve the long-term product design; statements about services, advanced evaluators, or UI below describe **planned** functionality unless listed as implemented here.
 
 ## Implemented components
 
@@ -21,6 +21,14 @@ The requested V0/V1 vertical slice is implemented as a Python library/CLI. The f
 | F: CLI/CI | Strict JSON config; validate/run/compare commands; exit codes 0/1/2/3; GitHub Actions with PostgreSQL, Python 3.11–3.14, coverage/style checks and installed-package regression demos | CLI pass/fail/error/config tests and 24-case offline demos; hosted CI results are recorded in the PR |
 
 Phase E (FastAPI/queue/workers), phases G–J (RAG/UI/agents/calibration), semantic similarity, embeddings, pairwise judging, production traces and adaptive generation are deferred. No frontend, API service, Redis, queue, or fake provider-backed feature has been added.
+
+## Reliability and application-demo extension
+
+Release 0.2.0 adds approved baseline selection by name/run ID and immutable approval history; Alembic initial-schema/adoption and baseline revisions; bounded concurrency; retryable-provider classification with Retry-After handling; shared request/time/observed-cost limits; local target keyword parameters; and prompt-file contents/hashes.
+
+The independent ForgeDesk demo (`src/evalforge/demos`, `examples/support`) implements an actual rule-based FAQ application and provider-backed prompt configurations. It evaluates eight authored cases, validates a seed pair, approves a saved baseline, runs only the candidate, and verifies the expected refund-category regression. The wrapper returns success only if the expected blocked regression is established. The offline application does not inspect case IDs, reference answers, or expected facts. The live version uses policy prompts, deterministic checks and a provider-backed judge; its complete 48-successful-call path is tested with controlled HTTP responses. No live paid validation is claimed because no credential was configured. Each live phase permits at most 40 provider attempts, including retries, with a 300-token output cap and cooperative 300-second deadline; this is not a dollar billing cap.
+
+The GitHub Actions workflow runs the offline approved-baseline application demo in addition to the original fixture gates. Dashboard, RAG/agent features and API/worker services remain deferred.
 
 ## Concrete repository structure
 
@@ -37,7 +45,10 @@ src/evalforge/
   storage.py      atomic JSON + immutable SQL snapshots
   config.py       validated JSON configuration + component construction
   report.py       terminal metrics and failure evidence
-  cli.py          validate / run / compare and exit codes
+  cli.py          validate / run / compare / baseline / db and exit codes
+  budgets.py      shared cooperative budgets and request reservations
+  migrations/     versioned core/adoption and approval revisions
+  demos/          rule-based/provider-backed support application and workflow
   __main__.py     python -m evalforge
  tests/           pytest unit, integration, CLI and PostgreSQL coverage
  evals/support.jsonl

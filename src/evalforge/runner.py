@@ -59,8 +59,12 @@ def run_experiment(
             result = TargetResult.model_validate(result.model_dump())
             budget.check_completion()
         except Exception as exc:
-            output = result.output if isinstance(result, TargetResult) else None
-            result = TargetResult(status="ERROR", error=error_message(exc), output=output)
+            if isinstance(result, TargetResult):
+                evidence = result.model_dump()
+                evidence.update(status="ERROR", error=error_message(exc))
+                result = TargetResult.model_validate(evidence)
+            else:
+                result = TargetResult(status="ERROR", error=error_message(exc))
         result.latency_ms = (time.perf_counter() - start) * 1000
         scores = []
         for evaluator in evaluators:

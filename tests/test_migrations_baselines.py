@@ -205,3 +205,24 @@ def test_v1_run_without_execution_field_remains_immutable(tmp_path):
             ).scalar_one()
         )
     database.close()
+
+
+@pytest.mark.postgres
+def test_postgres_baseline_approval_and_migration():
+    import os
+    from uuid import uuid4
+
+    url = os.environ.get("EVALFORGE_TEST_DATABASE_URL")
+    if not url:
+        pytest.skip("EVALFORGE_TEST_DATABASE_URL not configured")
+    store = SQLStore(url)
+    try:
+        assert current_revision(store.engine) == HEAD
+        baseline = sample_experiment().baseline
+        name = "postgres-" + str(uuid4())
+        record = store.approve_baseline(baseline, name=name, approved_by="integration-test")
+        assert store.resolve_baseline(name=name) == baseline
+        assert store.resolve_baseline(run_id=baseline.id) == baseline
+        assert store.baseline_history(name) == [record]
+    finally:
+        store.close()

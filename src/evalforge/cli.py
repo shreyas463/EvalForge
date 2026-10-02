@@ -92,8 +92,8 @@ def _execute(args):
             if canonical(baseline.evaluators) != canonical([e.spec for e in evaluators]):
                 raise ComparisonError("approved baseline evaluator configuration differs")
         else:
-            baseline_target, baseline_config = build_target(config.baseline)
-        candidate_target, candidate_config = build_target(config.candidate)
+            baseline_target, baseline_config = build_target(config.baseline, base_dir=base)
+        candidate_target, candidate_config = build_target(config.candidate, base_dir=base)
         budget = RunBudget(config.execution)
         if baseline is None:
             baseline = run_experiment(

@@ -212,13 +212,16 @@ def test_concurrent_request_reservation_never_overshoots():
     assert result.status == "ERROR"
 
 
-def test_cooperative_deadline_preserves_completed_output():
+def test_cooperative_deadline_preserves_completed_output(monkeypatch):
     dataset = Dataset(
         name="test", version="v1", cases=[EvalCase(id="a", input="q", reference_answer="yes")]
     )
 
+    clock = [0.0]
+    monkeypatch.setattr("evalforge.budgets.time.monotonic", lambda: clock[0])
+
     def slow(case):
-        time.sleep(0.01)
+        clock[0] = 1.0
         return "yes"
 
     evaluator = DeterministicEvaluator(EvaluatorSpec(metric="match", kind="exact_match"))
@@ -227,7 +230,7 @@ def test_cooperative_deadline_preserves_completed_output():
         LocalTarget(slow),
         [evaluator],
         target_name="slow",
-        limits=ExecutionLimits(max_seconds=0.001),
+        limits=ExecutionLimits(max_seconds=0.5),
     )
     assert result.status == "ERROR"
     assert result.cases[0].target.output == "yes"
@@ -293,6 +296,7 @@ def test_final_call_cost_overrun_cannot_pass():
     )
     assert result.status == "ERROR"
     assert result.cases[0].target.output == "yes"
+    assert result.cases[0].target.cost == 0.00002
     assert "cost budget exceeded" in result.cases[0].target.error
 
 

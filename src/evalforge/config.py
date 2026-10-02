@@ -2,11 +2,12 @@
 
 import hashlib
 import importlib
+from functools import partial
 from pathlib import Path
 from typing import Annotated, Literal
 from urllib.parse import urlsplit
 
-from pydantic import Field, model_validator
+from pydantic import Field, JsonValue, model_validator
 
 from evalforge.datasets import parse_json
 from evalforge.evaluators import DeterministicEvaluator, LLMJudge
@@ -65,6 +66,7 @@ class LocalConfig(Model):
     kind: Literal["local"]
     name: Name
     callable: Name
+    parameters: dict[str, JsonValue] = Field(default_factory=dict)
 
 
 class ChatConfig(Model):
@@ -72,6 +74,13 @@ class ChatConfig(Model):
     name: Name
     provider: ProviderConfig
     system_prompt: str = "You are a helpful assistant."
+    system_prompt_file: Name | None = None
+
+    @model_validator(mode="after")
+    def one_prompt(self):
+        if self.system_prompt_file and self.system_prompt != "You are a helpful assistant.":
+            raise ValueError("use either system_prompt or system_prompt_file")
+        return self
 
 
 TargetConfig = Annotated[MockConfig | LocalConfig | ChatConfig, Field(discriminator="kind")]
@@ -107,14 +116,18 @@ def load_config(path: str | Path) -> ExperimentConfig:
     )
 
 
-def build_target(config: TargetConfig):
+def build_target(config: TargetConfig, *, base_dir: Path | None = None):
     snapshot = config.model_dump(mode="json")
     if isinstance(config, MockConfig):
         return MockTarget(config.responses), snapshot
     if isinstance(config, ChatConfig):
-        return LLMTarget(
-            ChatProvider(**config.provider.model_dump()), config.system_prompt
-        ), snapshot
+        prompt = config.system_prompt
+        if config.system_prompt_file:
+            path = (base_dir or Path.cwd()) / config.system_prompt_file
+            prompt = path.read_text(encoding="utf-8")
+            snapshot["system_prompt"] = prompt
+            snapshot["system_prompt_sha256"] = hashlib.sha256(prompt.encode()).hexdigest()
+        return LLMTarget(ChatProvider(**config.provider.model_dump()), prompt), snapshot
     module_name, separator, attribute = config.callable.partition(":")
     if not separator or not attribute:
         raise ValueError("local callable must be module:function")
@@ -125,7 +138,7 @@ def build_target(config: TargetConfig):
     file = getattr(module, "__file__", None)
     if file:
         snapshot["module_hash"] = hashlib.sha256(Path(file).read_bytes()).hexdigest()
-    return LocalTarget(function), snapshot
+    return LocalTarget(partial(function, **config.parameters)), snapshot
 
 
 def build_evaluators(config: ExperimentConfig):
