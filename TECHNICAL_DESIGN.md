@@ -1,12 +1,12 @@
 # EvalForge — Complete Technical Design and Implementation Plan
 
-> **Status:** V0/V1 core engine implemented; broader platform remains planned.
+> **Status:** Core, baseline reliability, initial RAG evaluation and local results dashboard implemented; broader platform remains planned.
 > **Purpose:** Source of truth for the implemented core and the future architecture. The implementation ledger below takes precedence over conceptual examples in later sections.
 
 ---
 
 
-# Implementation Ledger — Release 0.2.0
+# Implementation Ledger — Release 0.3.0
 
 The requested V0/V1 vertical slice and the baseline/reliability/application-demo milestone are implemented as a Python library/CLI. The following 63 sections preserve the long-term product design; statements about services, advanced evaluators, or UI below describe **planned** functionality unless listed as implemented here.
 
@@ -20,7 +20,7 @@ The requested V0/V1 vertical slice and the baseline/reliability/application-demo
 | D: Persistence | Atomic JSON artifacts; SQLAlchemy datasets/runs/experiments tables; PostgreSQL JSONB snapshots with immutable IDs/version labels and transactions | SQLite and real PostgreSQL round trips, idempotence, conflicts and rollback |
 | F: CLI/CI | Strict JSON config; validate/run/compare commands; exit codes 0/1/2/3; GitHub Actions with PostgreSQL, Python 3.11–3.14, coverage/style checks and installed-package regression demos | CLI pass/fail/error/config tests and 24-case offline demos; hosted CI results are recorded in the PR |
 
-Phase E (FastAPI/queue/workers), phases G–J (RAG/UI/agents/calibration), semantic similarity, embeddings, pairwise judging, production traces and adaptive generation are deferred. No frontend, API service, Redis, queue, or fake provider-backed feature has been added.
+Phase G now has an initial RAG slice, detailed below. Phase E (FastAPI/queue/workers), advanced phase H UI and phases I–J (agents/calibration), semantic similarity, embeddings, pairwise judging, production traces and adaptive generation are deferred.
 
 ## Reliability and application-demo extension
 
@@ -28,7 +28,45 @@ Release 0.2.0 adds approved baseline selection by name/run ID and immutable appr
 
 The independent ForgeDesk demo (`src/evalforge/demos`, `examples/support`) implements an actual rule-based FAQ application and provider-backed prompt configurations. It evaluates eight authored cases, validates a seed pair, approves a saved baseline, runs only the candidate, and verifies the expected refund-category regression. The wrapper returns success only if the expected blocked regression is established. The offline application does not inspect case IDs, reference answers, or expected facts. The live version uses policy prompts, deterministic checks and a provider-backed judge; its complete 48-successful-call path is tested with controlled HTTP responses. No live paid validation is claimed because no credential was configured. Each live phase permits at most 40 provider attempts, including retries, with a 300-token output cap and cooperative 300-second deadline; this is not a dollar billing cap.
 
-The GitHub Actions workflow runs the offline approved-baseline application demo in addition to the original fixture gates. Dashboard, RAG/agent features and API/worker services remain deferred.
+The GitHub Actions workflow runs the offline approved-baseline application demo in addition to the original fixture gates. Hosted dashboard, advanced RAG/agent features and API/worker services remain deferred.
+
+## Initial RAG slice (0.3.0)
+
+`rag.py` implements a frozen UTF-8 Markdown corpus snapshot, heading-aware word-bounded
+chunks, content-derived chunk IDs, and in-memory BM25 search (positive log(1+RSJ odds),
+k1=1.5, b=0.75, unique query tokens, deterministic ties). Corpus SHA-256 includes document
+paths/content and chunk configuration. No embeddings, vector database or reranker exists yet.
+The `rag` target reads only `case.input`, retrieves passages, and calls the configured chat
+provider with source IDs. It has no offline answer fallback. Typed optional `TargetResult.retrieval`
+captures query, corpus hash, retriever, requested K, ranked passage text/scores and parsed
+citations. Provider failures retain retrieval evidence. Old non-RAG snapshots remain readable.
+
+Document-level recall/precision use `metadata.relevant_document_ids` and the first K ranked
+passages, deduplicating document hits. Recall divides by labeled relevant document count;
+precision divides by K (missing slots count as misses). Missing labels skip; malformed labels,
+missing/mismatched trace or insufficient configured retrieval depth error. Citation validity checks
+source membership, not claim support. Faithfulness uses a structured provider judge with only
+question, answer and retrieved evidence; reference answers are excluded. Judge scores remain
+uncalibrated model judgments. Reports preserve retrieved evidence for failed cases.
+
+`examples/rag` contains independent policy documents and three labeled cases, a complete
+baseline corpus and a candidate missing the refund policy. The retrieval-only command makes
+no model calls; the answer/evaluation modes require a provider. Controlled HTTP tests verify
+label isolation and a missing-document regression. No live paid AI validation is claimed.
+
+## Local results dashboard (0.3.0)
+
+`evalforge dashboard --open` serves a packaged HTML/CSS/JavaScript results explorer through
+Python's standard-library HTTP server, bound only to 127.0.0.1. This is an initial read-only
+artifact viewer, not the future FastAPI/control-plane/worker architecture. It lists validated
+`experiment.json` snapshots under a configured artifact root, newest first, and shows gates,
+baseline/candidate case answers, evaluator explanations and RAG passage/citation evidence.
+The client uses text DOM rendering for untrusted inputs/outputs, never HTML interpolation.
+Local Host/Origin validation, same-origin assets, CSP and no write endpoints keep its scope local.
+UUID-only experiment routes, symlink/path guards and a 16-MiB per-artifact read bound prevent
+arbitrary file browsing. Invalid folders are counted/skipped. Listing scans all snapshots;
+SQL querying, pagination, authentication, model execution and approvals in the UI are deferred.
+Tests cover real loopback HTTP routes, invalid artifacts, path/origin guards and CLI dispatch.
 
 ## Concrete repository structure
 

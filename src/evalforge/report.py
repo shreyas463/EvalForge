@@ -52,6 +52,18 @@ def render_report(baseline: Run, candidate: Run, comparison: Comparison) -> str:
             lines.append(f"- {row.case.id} ({row.case.category}, critical={row.case.critical})")
             lines.append(f"  baseline output: {json.dumps(before[row.case.id].target.output)}")
             lines.append(f"  candidate output: {json.dumps(row.target.output)}")
+            for label, target in [
+                ("baseline", before[row.case.id].target),
+                ("candidate", row.target),
+            ]:
+                if target.retrieval:
+                    lines.append(f"  {label} retrieved sources:")
+                    for passage in target.retrieval.passages:
+                        lines.append(
+                            f"    {passage.rank}. {passage.chunk_id} (score={passage.score:.4g})"
+                        )
+                        lines.append(f"       {json.dumps(passage.text)}")
+                    lines.append(f"  {label} citations: {json.dumps(target.retrieval.citations)}")
             if row.target.error:
                 lines.append(f"  target error: {row.target.error}")
             lines.extend(

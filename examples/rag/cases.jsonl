@@ -1,0 +1,3 @@
+{"id":"refund_window","input":"What is the refund policy and eligibility window?","reference_answer":"Refunds are available only within 14 days of purchase.","metadata":{"relevant_document_ids":["refunds.md"]},"category":"refunds","critical":true}
+{"id":"invoice_download","input":"Where can I download billing invoices?","reference_answer":"Settings > Billing > Invoices.","metadata":{"relevant_document_ids":["billing.md"]},"category":"billing"}
+{"id":"password_reset","input":"How do I reset a forgotten password?","reference_answer":"Use Forgot password on the sign-in page.","metadata":{"relevant_document_ids":["security.md"]},"category":"security"}

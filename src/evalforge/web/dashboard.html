@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EvalForge · Results</title>
+  <link rel="stylesheet" href="/dashboard.css">
+  <script src="/dashboard.js" defer></script>
+</head>
+<body>
+  <header>
+    <a href="/" class="brand"><span class="brand-mark" aria-hidden="true">◇</span>EvalForge</a>
+    <span class="local">Local workspace</span>
+    <button id="refresh">Refresh results</button>
+    <button id="help" aria-expanded="false" aria-controls="getting-started">How to use</button>
+  </header>
+  <main>
+    <section class="intro">
+      <div><h1>Experiment results</h1><p>Did your change make the answers better or worse? Start with the result, then review the questions.</p></div>
+      <span class="view-label">Read-only explorer</span>
+    </section>
+    <section id="getting-started" class="help-panel" hidden>
+      <h2>How to use EvalForge</h2>
+      <ol>
+        <li><strong>Choose a saved test.</strong> The baseline is the reference version. The candidate is the changed version you are checking.</li>
+        <li><strong>Read the result.</strong> Passed means required checks were met. Blocked means a quality rule failed. Incomplete means an execution or evidence problem prevented a reliable decision.</li>
+        <li><strong>Review the questions.</strong> Compare both answers and expand their checks or source documents to understand what happened.</li>
+        <li><strong>Fix and test again.</strong> Change your application, documents or configuration, run another evaluation, then select Refresh results.</li>
+      </ol>
+      <details><summary>Create your first result</summary>
+        <p>From the project folder, with EvalForge installed, run the support demonstration:</p>
+        <code>python -m evalforge.demos.workflow</code>
+        <p>This uses rules, not AI. It intentionally creates a passing run and a blocked run to demonstrate how EvalForge catches mistakes.</p>
+      </details>
+      <details><summary>Test actual model-generated RAG answers</summary>
+        <p>Configure the model IDs in examples/rag/live.json and set the provider credential locally. The model and judge must support the configured endpoint. Then run:</p>
+        <code>evalforge run --config examples/rag/live.json</code>
+        <p>This example compares a complete document collection with one missing the refund policy. Calls may be paid. Refresh results after the run finishes.</p>
+      </details>
+      <p class="muted">This page reads saved results. Refresh reloads them; it does not run a test or call a model.</p>
+    </section>
+    <p id="notice" role="status" aria-live="polite"></p>
+    <div class="workspace">
+      <aside><h2>Recent experiments</h2><div id="history"></div></aside>
+      <section id="detail" aria-live="polite">
+        <div class="empty">
+          <h2>Start with a demonstration</h2>
+          <p>1. Run this command from the project folder to create saved results.</p>
+          <code>python -m evalforge.demos.workflow</code>
+          <p>2. Select Refresh results above, then choose a saved test. The demonstration uses rules, not AI, and deliberately includes a blocked change. For real-model setup, select How to use.</p>
+
+        </div>
+      </section>
+    </div>
+  </main>
+  <footer>Reading saved results from your computer. Model execution and baseline approvals stay in the CLI.</footer>
+</body>
+</html>
