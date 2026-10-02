@@ -10,7 +10,7 @@ from urllib.parse import urlsplit
 from pydantic import Field, JsonValue, model_validator
 
 from evalforge.datasets import parse_json
-from evalforge.evaluators import DeterministicEvaluator, LLMJudge
+from evalforge.evaluators import DeterministicEvaluator, LLMJudge, RAGEvaluator
 from evalforge.models import (
     EvaluatorSpec,
     ExecutionLimits,
@@ -20,6 +20,7 @@ from evalforge.models import (
     RegressionRule,
 )
 from evalforge.providers import ChatProvider
+from evalforge.rag import SYSTEM_PROMPT, BM25Retriever, RAGTarget
 from evalforge.runner import RESERVED_METRICS
 from evalforge.targets import LLMTarget, LocalTarget, MockTarget
 
@@ -83,7 +84,18 @@ class ChatConfig(Model):
         return self
 
 
-TargetConfig = Annotated[MockConfig | LocalConfig | ChatConfig, Field(discriminator="kind")]
+class RAGConfig(Model):
+    kind: Literal["rag"]
+    name: Name
+    documents: Name
+    provider: ProviderConfig
+    top_k: Annotated[int, Field(ge=1, le=100)] = 3
+    chunk_words: Annotated[int, Field(ge=1, le=2000)] = 180
+
+
+TargetConfig = Annotated[
+    MockConfig | LocalConfig | ChatConfig | RAGConfig, Field(discriminator="kind")
+]
 
 
 class ExperimentConfig(Model):
@@ -103,7 +115,10 @@ class ExperimentConfig(Model):
         names = [e.metric for e in self.evaluators]
         if len(set(names)) != len(names) or set(names) & RESERVED_METRICS:
             raise ValueError("metrics must be unique and not reserved")
-        if any(e.kind == "judge" for e in self.evaluators) and self.judge_provider is None:
+        if (
+            any(e.kind in {"judge", "faithfulness"} for e in self.evaluators)
+            and self.judge_provider is None
+        ):
             raise ValueError("judge evaluator requires judge_provider")
         if any(g.metric not in set(names) | RESERVED_METRICS for g in self.gates):
             raise ValueError("gate references unknown metric")
@@ -120,6 +135,16 @@ def build_target(config: TargetConfig, *, base_dir: Path | None = None):
     snapshot = config.model_dump(mode="json")
     if isinstance(config, MockConfig):
         return MockTarget(config.responses), snapshot
+    if isinstance(config, RAGConfig):
+        retriever = BM25Retriever(
+            (base_dir or Path.cwd()) / config.documents, chunk_words=config.chunk_words
+        )
+        snapshot["corpus_hash"] = retriever.corpus_hash
+        snapshot["retriever"] = "bm25-v1"
+        snapshot["system_prompt"] = SYSTEM_PROMPT
+        return RAGTarget(
+            retriever, ChatProvider(**config.provider.model_dump()), top_k=config.top_k
+        ), snapshot
     if isinstance(config, ChatConfig):
         prompt = config.system_prompt
         if config.system_prompt_file:
@@ -145,9 +170,11 @@ def build_evaluators(config: ExperimentConfig):
     evaluators = []
     for original in config.evaluators:
         spec = original.model_copy(deep=True)
-        if spec.kind == "judge":
+        if spec.kind in {"judge", "faithfulness"}:
             spec.provider_config = config.judge_provider.model_dump(mode="json")
             evaluators.append(LLMJudge(spec, ChatProvider(**config.judge_provider.model_dump())))
+        elif spec.kind in {"retrieval_recall", "retrieval_precision", "citation_validity"}:
+            evaluators.append(RAGEvaluator(spec))
         else:
             evaluators.append(DeterministicEvaluator(spec))
     return evaluators

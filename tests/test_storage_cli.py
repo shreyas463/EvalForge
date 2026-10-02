@@ -241,3 +241,27 @@ def test_config_diagnostics_do_not_echo_secret(config_path, capsys):
     error = capsys.readouterr().err
     assert "api_key" in error
     assert "secret-value" not in error
+
+
+def test_pre_rag_snapshots_remain_idempotent_without_rewriting(store):
+    from sqlalchemy import update
+
+    experiment = sample_experiment()
+    store.save_experiment(experiment)
+    old = experiment.model_dump(mode="json")
+    for label in ("baseline", "candidate"):
+        for row in old[label]["cases"]:
+            row["target"].pop("retrieval")
+    with store.engine.begin() as connection:
+        for label in ("baseline", "candidate"):
+            connection.execute(
+                update(runs).where(runs.c.id == old[label]["id"]).values(payload=old[label])
+            )
+        connection.execute(
+            update(experiments).where(experiments.c.id == experiment.id).values(payload=old)
+        )
+    store.save_experiment(experiment)
+    assert store.load_experiment(experiment.id) == experiment
+    with store.engine.connect() as connection:
+        saved = connection.execute(select(experiments.c.payload)).scalar_one()
+    assert "retrieval" not in saved["baseline"]["cases"][0]["target"]

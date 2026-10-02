@@ -43,6 +43,33 @@ class Dataset(Model):
         return self
 
 
+class RetrievedPassage(Model):
+    document_id: Name
+    chunk_id: Name
+    heading: str
+    text: Name
+    rank: Annotated[int, Field(ge=1)]
+    score: NonNegative
+
+
+class RetrievalTrace(Model):
+    query: Name
+    corpus_hash: Name
+    retriever: Name = "bm25-v1"
+    top_k: Annotated[int, Field(ge=1)]
+    passages: list[RetrievedPassage] = Field(default_factory=list)
+    citations: list[Name] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def ordered_unique_passages(self):
+        ids = [p.chunk_id for p in self.passages]
+        if len(ids) != len(set(ids)) or len(ids) > self.top_k:
+            raise ValueError("retrieval passages must be unique and bounded by top_k")
+        if [p.rank for p in self.passages] != list(range(1, len(ids) + 1)):
+            raise ValueError("retrieval ranks must be consecutive and ordered")
+        return self
+
+
 class TargetResult(Model):
     output: str | None = None
     status: Literal["SUCCESS", "ERROR"] = "SUCCESS"
@@ -52,6 +79,7 @@ class TargetResult(Model):
     output_tokens: Annotated[int, Field(ge=0)] | None = None
     cost: NonNegative | None = None
     metadata: dict[str, JsonValue] = Field(default_factory=dict)
+    retrieval: RetrievalTrace | None = None
 
     @model_validator(mode="after")
     def coherent_status(self):
@@ -64,7 +92,19 @@ class TargetResult(Model):
 
 class EvaluatorSpec(Model):
     metric: Name
-    kind: Literal["exact_match", "contains", "excludes", "regex", "json_schema", "numeric", "judge"]
+    kind: Literal[
+        "exact_match",
+        "contains",
+        "excludes",
+        "regex",
+        "json_schema",
+        "numeric",
+        "judge",
+        "retrieval_recall",
+        "retrieval_precision",
+        "citation_validity",
+        "faithfulness",
+    ]
     version: Name = "1"
     options: dict[str, JsonValue] = Field(default_factory=dict)
     weight: Annotated[float, Field(gt=0, allow_inf_nan=False)] = 1

@@ -123,6 +123,10 @@ class SQLStore:
                 existing["payload"] = Run.model_validate(existing["payload"]).model_dump(
                     mode="json"
                 )
+            if table is experiments:
+                existing["payload"] = Experiment.model_validate(existing["payload"]).model_dump(
+                    mode="json"
+                )
             if any(existing[key] != value for key, value in values.items()):
                 raise StorageError(f"immutable {table.name} snapshot conflicts with stored content")
         else:
