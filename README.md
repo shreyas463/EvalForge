@@ -123,7 +123,7 @@ export EVALFORGE_DATABASE_URL='postgresql+psycopg://user:password@localhost:5432
 evalforge run --config examples/passing.json
 ```
 
-The CLI always writes JSON evidence and additionally stores the experiment and both runs when a database URL is supplied. SQLStore creates the three V1 tables on first use; the database account needs table creation permission. Dataset `(name, version)` and run/experiment IDs are immutable; conflicting writes fail and transactions roll back. Exact repeat writes are idempotent. PostgreSQL is integration-tested; database migrations, concurrent insert retries, retention, and access control remain future work. `sqlite:///path/to/evalforge.db` is an optional local alternative.
+The CLI always writes JSON evidence and additionally stores the experiment and both runs when a database URL is supplied. SQLStore runs packaged Alembic migrations on first use; the database account needs schema migration permission. Existing V1 tables are adopted only after checking columns, types, primary keys, and foreign keys. Dataset `(name, version)` and run/experiment IDs are immutable; conflicting writes fail and transactions roll back. Exact repeat writes are idempotent. PostgreSQL is integration-tested. Concurrent insert retries, retention, and access control remain future work. `sqlite:///path/to/evalforge.db` is an optional local alternative.
 
 Compare previously saved runs with new gates:
 
@@ -134,6 +134,26 @@ evalforge compare --config examples/regression.json \
 ```
 
 This command does not execute targets or judges. It validates the saved evidence and applies the config's gates to those runs; dataset/target fields remain required by the shared experiment configuration.
+
+## Approved baselines and database versions
+
+Approve a saved run once, then evaluate only candidates against it:
+
+```bash
+evalforge baseline approve --run .evalforge/EXPERIMENT_DIRECTORY/baseline.json \
+  --name support-release --approved-by YOUR_NAME --note 'Reviewed policy cases'
+evalforge run --config examples/regression.json --baseline-name support-release
+# Or select the exact approved run:
+evalforge run --config examples/regression.json --baseline-id APPROVED_RUN_ID
+evalforge baseline show --name support-release
+evalforge baseline history --name support-release
+evalforge db status
+evalforge db upgrade
+```
+
+These commands use `EVALFORGE_DATABASE_URL` or `--database-url`. Approval stores the run transactionally and appends an audit record; approving a replacement under the same name preserves previous approvals and runs. `--approved-by` is an audit label, not an authentication mechanism. Execution errors, unknown judgments, absence of scored evidence, and failed/unscored critical cases prevent approval. Candidate-only execution rejects dataset/evaluator mismatches before making target calls. It still requires the shared experiment configuration's baseline fields, but does not execute them.
+
+Migrations initialize new databases and preserve existing V1 evidence. Partial or incompatible unversioned schemas and unknown revisions fail instead of being silently stamped. PostgreSQL migrations serialize with an advisory transaction lock. Destructive downgrades are unsupported; back up persistent databases before upgrades. `db status` only inspects the revision and exits 3 when it is not current.
 
 ## CLI exit codes
 

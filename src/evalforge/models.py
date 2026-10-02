@@ -194,3 +194,12 @@ class Experiment(Model):
         ):
             raise ValueError("comparison must refer to experiment runs")
         return self
+
+
+class BaselineApproval(Model):
+    id: Name = Field(default_factory=lambda: str(uuid4()))
+    name: Name
+    run_id: Name
+    approved_by: Name
+    approved_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    note: str = ""
