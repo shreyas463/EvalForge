@@ -48,6 +48,8 @@ jobs:
         run: pytest --cov=evalforge --cov-fail-under=90 --cov-report=term-missing --cov-report=xml
       - name: Passing offline quality gate
         run: evalforge run --config examples/passing.json
+      - name: Approved baseline and support application regression demo
+        run: python -m evalforge.demos.workflow
       - name: Verify injected regression blocks CI
         shell: bash
         run: |
