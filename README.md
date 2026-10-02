@@ -40,7 +40,7 @@ Each invocation saves a new directory under `.evalforge/` containing `baseline.j
 - Mock targets, local Python callables, and raw model targets using a synchronous OpenAI-compatible Chat Completions HTTP adapter.
 - Versioned exact match, required/forbidden substring, regex, JSON Schema (Draft 2020-12), and numeric-tolerance evaluators.
 - Structured LLM judges with explicit rubrics, score/confidence validation, rationale, evidence, provider identity, and token/cost capture.
-- Sequential experiment execution with independent target/evaluator errors; errors are never converted into quality scores.
+- Bounded concurrent experiment execution with independent target/evaluator errors; errors are never converted into quality scores.
 - Weighted quality scores by metric and category, per-case evidence, average/p95 latency, reported token counts, configured price estimates, and target error rates.
 - Paired comparisons requiring identical dataset content/version and evaluator configurations; mismatched applicability is rejected.
 - Absolute/relative score regression limits, minimum scores/sample counts, category gates, critical-case gates, operational ceilings/increase limits, and warning/blocking severity.
@@ -135,6 +135,20 @@ evalforge compare --config examples/regression.json \
 
 This command does not execute targets or judges. It validates the saved evidence and applies the config's gates to those runs; dataset/target fields remain required by the shared experiment configuration.
 
+## Execution limits and provider retries
+
+Add an experiment-wide budget (shared by baseline, candidate, judges, and retries):
+
+```json
+{"execution":{"concurrency":4,"max_provider_requests":100,"max_seconds":120,"max_observed_cost":0.50}}
+```
+
+All limits are optional; concurrency defaults to 1. Request reservations are thread-safe and count every built-in provider HTTP attempt, including failures and retries. Budget exhaustion preserves full case coverage with explicit errors and exits 3. Saved execution evidence records cumulative request/retry counts, elapsed time, configured limits, and observed provider cost across the invocation.
+
+`max_observed_cost` is a **post-response estimate threshold, not a hard billing cap**. It requires configured prices; missing/unknown usage blocks further cost-limited work. In-flight calls can overshoot it, and providers may bill failed/timed-out requests whose usage is unknown. Only the built-in ChatProvider participates automatically; custom providers must use the budget interface. Use provider-side spending controls for a hard billing cap.
+
+Provider configuration accepts `max_attempts` (1–10, default 1), `retry_base_seconds` (default 0.5), `retry_max_seconds` (default 10), and optional `max_completion_tokens`. Transient 408/429/500/502/503/504 and transport/timeouts can retry. Authentication, malformed output, and quota/billing errors do not retry. Valid `Retry-After` delays are honored; delays above the configured maximum or available deadline stop retries. Otherwise backoff uses exponential jitter. `timeout` bounds the completion/retry scheduling window and limits each HTTP phase to the remaining window; overdue responses are rejected. Time limits remain cooperative rather than process-level cancellation. See the [official retry guidance](https://developers.openai.com/api/docs/guides/rate-limits).
+
 ## Approved baselines and database versions
 
 Approve a saved run once, then evaluate only candidates against it:
@@ -188,7 +202,7 @@ JSONL + JSON config → Targets → Versioned evaluators → Saved runs
 
 The implementation is a `src/evalforge` Python package with separate models, datasets, targets/providers, evaluators, runner, scoring, regression, storage, configuration, reporting, and CLI modules. It owns the evaluation/regression engine rather than wrapping a third-party eval library.
 
-This release runs sequentially, without application-level retries or background workers. HTTP calls have configurable timeouts; local targets/evaluators do not have enforced execution deadlines. Latency is measured wall time around target execution, and p95 uses nearest rank. Operational averages are unweighted; quality averages use evaluator weights within each case, then case weights across cases. Skips are excluded and coverage is reported. No statistical significance claim is made by threshold gates. Artifacts contain raw inputs/outputs and should be handled as application data.
+Concurrency defaults to 1 and is configurable up to 32 cases; result order stays aligned with the dataset. Built-in providers support bounded transient retries; background workers remain deferred. Time budgets are cooperative: in-flight HTTP phases or local callables can finish after the deadline, and overdue results become errors. Local targets/evaluators cannot be forcibly terminated. Custom targets and evaluators must be thread-safe when concurrency exceeds 1. Latency is measured wall time around target execution, and p95 uses nearest rank. Operational averages are unweighted; quality averages use evaluator weights within each case, then case weights across cases. Skips are excluded and coverage is reported. No statistical significance claim is made by threshold gates. Artifacts contain raw inputs/outputs and should be handled as application data.
 
 ## Roadmap
 

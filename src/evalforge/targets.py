@@ -51,4 +51,5 @@ class LLMTarget:
             input_tokens=result.input_tokens,
             output_tokens=result.output_tokens,
             cost=result.cost,
+            metadata={"provider_attempts": result.attempts},
         )

@@ -10,6 +10,7 @@ from uuid import uuid4
 from pydantic import ValidationError
 from sqlalchemy import create_engine
 
+from evalforge.budgets import RunBudget
 from evalforge.config import build_evaluators, build_target, load_config
 from evalforge.datasets import DatasetError, dataset_hash, load_jsonl
 from evalforge.migrations import HEAD, current_revision
@@ -93,6 +94,7 @@ def _execute(args):
         else:
             baseline_target, baseline_config = build_target(config.baseline)
         candidate_target, candidate_config = build_target(config.candidate)
+        budget = RunBudget(config.execution)
         if baseline is None:
             baseline = run_experiment(
                 dataset,
@@ -100,6 +102,7 @@ def _execute(args):
                 evaluators,
                 target_name=config.baseline.name,
                 target_config=baseline_config,
+                budget=budget,
             )
         candidate = run_experiment(
             dataset,
@@ -107,6 +110,7 @@ def _execute(args):
             evaluators,
             target_name=config.candidate.name,
             target_config=candidate_config,
+            budget=budget,
         )
     comparison = compare(baseline, candidate, config.gates)
     directory = Path(args.output_dir).resolve() if args.output_dir else base / config.output_dir

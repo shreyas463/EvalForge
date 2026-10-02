@@ -104,6 +104,7 @@ class Run(Model):
     evaluators: list[EvaluatorSpec] = Field(min_length=1)
     cases: list[CaseResult] = Field(min_length=1)
     status: Literal["COMPLETED", "ERROR"]
+    execution: dict[str, JsonValue] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def complete_matrix(self):
@@ -203,3 +204,10 @@ class BaselineApproval(Model):
     approved_by: Name
     approved_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     note: str = ""
+
+
+class ExecutionLimits(Model):
+    concurrency: Annotated[int, Field(ge=1, le=32)] = 1
+    max_provider_requests: Annotated[int, Field(ge=1)] | None = None
+    max_seconds: Annotated[float, Field(gt=0, allow_inf_nan=False)] | None = None
+    max_observed_cost: NonNegative | None = None

@@ -203,5 +203,6 @@ class LLMJudge:
                 "judge_input_tokens": completion.input_tokens,
                 "judge_output_tokens": completion.output_tokens,
                 "judge_cost": completion.cost,
+                "judge_provider_attempts": completion.attempts,
             },
         )

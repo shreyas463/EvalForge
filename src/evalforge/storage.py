@@ -117,6 +117,12 @@ class SQLStore:
     def _immutable(connection, table, condition, values):
         existing = connection.execute(select(table).where(condition)).mappings().first()
         if existing:
+            existing = dict(existing)
+            # Add current defaults to old run payloads without rewriting historical evidence.
+            if table is runs:
+                existing["payload"] = Run.model_validate(existing["payload"]).model_dump(
+                    mode="json"
+                )
             if any(existing[key] != value for key, value in values.items()):
                 raise StorageError(f"immutable {table.name} snapshot conflicts with stored content")
         else:

@@ -183,3 +183,25 @@ def test_baseline_cli_and_candidate_only_execution(tmp_path, capsys):
         == 2
     )
     assert "dataset differs" in capsys.readouterr().err
+
+
+def test_v1_run_without_execution_field_remains_immutable(tmp_path):
+    database = SQLStore(f"sqlite:///{tmp_path / 'old-run.db'}")
+    run = sample_experiment().baseline
+    database.save_run(run)
+    old_payload = run.model_dump(mode="json")
+    old_payload.pop("execution")
+    with database.engine.begin() as connection:
+        connection.execute(runs.update().where(runs.c.id == run.id).values(payload=old_payload))
+    reloaded = database.load_run(run.id)
+    database.save_run(reloaded)
+    database.approve_baseline(reloaded, name="old", approved_by="tester")
+    assert database.resolve_baseline(name="old") == reloaded
+    with database.engine.connect() as connection:
+        assert (
+            "execution"
+            not in connection.execute(
+                select(runs.c.payload).where(runs.c.id == run.id)
+            ).scalar_one()
+        )
+    database.close()

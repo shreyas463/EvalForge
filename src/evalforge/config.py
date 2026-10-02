@@ -10,7 +10,14 @@ from pydantic import Field, model_validator
 
 from evalforge.datasets import parse_json
 from evalforge.evaluators import DeterministicEvaluator, LLMJudge
-from evalforge.models import EvaluatorSpec, Model, Name, NonNegative, RegressionRule
+from evalforge.models import (
+    EvaluatorSpec,
+    ExecutionLimits,
+    Model,
+    Name,
+    NonNegative,
+    RegressionRule,
+)
 from evalforge.providers import ChatProvider
 from evalforge.runner import RESERVED_METRICS
 from evalforge.targets import LLMTarget, LocalTarget, MockTarget
@@ -22,6 +29,10 @@ class ProviderConfig(Model):
     api_key_env: Name = "OPENAI_API_KEY"
     timeout: Annotated[float, Field(gt=0, allow_inf_nan=False)] = 60
     temperature: Annotated[float, Field(ge=0, le=2, allow_inf_nan=False)] = 0
+    max_attempts: Annotated[int, Field(ge=1, le=10)] = 1
+    retry_base_seconds: NonNegative = 0.5
+    retry_max_seconds: NonNegative = 10
+    max_completion_tokens: Annotated[int, Field(ge=1)] | None = None
     input_cost_per_million: NonNegative | None = None
     output_cost_per_million: NonNegative | None = None
 
@@ -76,6 +87,7 @@ class ExperimentConfig(Model):
     judge_provider: ProviderConfig | None = None
     gates: list[RegressionRule] = Field(min_length=1)
     output_dir: Name = ".evalforge"
+    execution: ExecutionLimits = Field(default_factory=ExecutionLimits)
 
     @model_validator(mode="after")
     def consistent_metrics(self):
