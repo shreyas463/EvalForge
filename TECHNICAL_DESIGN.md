@@ -1,6 +1,6 @@
 # EvalForge — Complete Technical Design and Implementation Plan
 
-> **Status:** V0/V1 core engine implemented; broader platform remains planned.
+> **Status:** Core, baseline reliability, initial RAG evaluation and local results dashboard implemented; broader platform remains planned.
 > **Purpose:** Source of truth for the implemented core and the future architecture. The implementation ledger below takes precedence over conceptual examples in later sections.
 
 ---
@@ -20,7 +20,7 @@ The requested V0/V1 vertical slice and the baseline/reliability/application-demo
 | D: Persistence | Atomic JSON artifacts; SQLAlchemy datasets/runs/experiments tables; PostgreSQL JSONB snapshots with immutable IDs/version labels and transactions | SQLite and real PostgreSQL round trips, idempotence, conflicts and rollback |
 | F: CLI/CI | Strict JSON config; validate/run/compare commands; exit codes 0/1/2/3; GitHub Actions with PostgreSQL, Python 3.11–3.14, coverage/style checks and installed-package regression demos | CLI pass/fail/error/config tests and 24-case offline demos; hosted CI results are recorded in the PR |
 
-Phase G now has an initial RAG slice, detailed below. Phase E (FastAPI/queue/workers), phases H–J (UI/agents/calibration), semantic similarity, embeddings, pairwise judging, production traces and adaptive generation are deferred.
+Phase G now has an initial RAG slice, detailed below. Phase E (FastAPI/queue/workers), advanced phase H UI and phases I–J (agents/calibration), semantic similarity, embeddings, pairwise judging, production traces and adaptive generation are deferred.
 
 ## Reliability and application-demo extension
 
@@ -28,7 +28,7 @@ Release 0.2.0 adds approved baseline selection by name/run ID and immutable appr
 
 The independent ForgeDesk demo (`src/evalforge/demos`, `examples/support`) implements an actual rule-based FAQ application and provider-backed prompt configurations. It evaluates eight authored cases, validates a seed pair, approves a saved baseline, runs only the candidate, and verifies the expected refund-category regression. The wrapper returns success only if the expected blocked regression is established. The offline application does not inspect case IDs, reference answers, or expected facts. The live version uses policy prompts, deterministic checks and a provider-backed judge; its complete 48-successful-call path is tested with controlled HTTP responses. No live paid validation is claimed because no credential was configured. Each live phase permits at most 40 provider attempts, including retries, with a 300-token output cap and cooperative 300-second deadline; this is not a dollar billing cap.
 
-The GitHub Actions workflow runs the offline approved-baseline application demo in addition to the original fixture gates. Dashboard, advanced RAG/agent features and API/worker services remain deferred.
+The GitHub Actions workflow runs the offline approved-baseline application demo in addition to the original fixture gates. Hosted dashboard, advanced RAG/agent features and API/worker services remain deferred.
 
 ## Initial RAG slice (0.3.0)
 
@@ -53,6 +53,20 @@ uncalibrated model judgments. Reports preserve retrieved evidence for failed cas
 baseline corpus and a candidate missing the refund policy. The retrieval-only command makes
 no model calls; the answer/evaluation modes require a provider. Controlled HTTP tests verify
 label isolation and a missing-document regression. No live paid AI validation is claimed.
+
+## Local results dashboard (0.3.0)
+
+`evalforge dashboard --open` serves a packaged HTML/CSS/JavaScript results explorer through
+Python's standard-library HTTP server, bound only to 127.0.0.1. This is an initial read-only
+artifact viewer, not the future FastAPI/control-plane/worker architecture. It lists validated
+`experiment.json` snapshots under a configured artifact root, newest first, and shows gates,
+baseline/candidate case answers, evaluator explanations and RAG passage/citation evidence.
+The client uses text DOM rendering for untrusted inputs/outputs, never HTML interpolation.
+Local Host/Origin validation, same-origin assets, CSP and no write endpoints keep its scope local.
+UUID-only experiment routes, symlink/path guards and a 16-MiB per-artifact read bound prevent
+arbitrary file browsing. Invalid folders are counted/skipped. Listing scans all snapshots;
+SQL querying, pagination, authentication, model execution and approvals in the UI are deferred.
+Tests cover real loopback HTTP routes, invalid artifacts, path/origin guards and CLI dispatch.
 
 ## Concrete repository structure
 

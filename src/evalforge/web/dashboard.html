@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EvalForge · Results</title><link rel="stylesheet" href="/dashboard.css"><script src="/dashboard.js" defer></script></head>
+<body>
+<header><a href="/" class="brand">◈ EvalForge</a><span class="local">LOCAL RESULTS</span><button id="refresh">Refresh results</button></header>
+<main>
+<section class="intro"><p class="eyebrow">EXPERIMENT EXPLORER</p><h1>See what changed.<br>Understand what failed.</h1><p>Compare an approved version with a proposed change. Inspect the answers and evidence behind every decision.</p></section>
+<p id="notice" role="status" aria-live="polite"></p>
+<div class="workspace"><aside><h2>Saved experiments</h2><div id="history"></div></aside><section id="detail" aria-live="polite"><div class="empty"><h2>Your results will appear here</h2><p>Run an evaluation, then refresh this page.</p><code>python -m evalforge.demos.workflow</code><p>The support demo uses rules. For actual model answers, configure and run the RAG example.</p><code>evalforge run --config examples/rag/live.json</code></div></section></div>
+</main><footer>Results are read from local saved experiments. This dashboard does not run models or change baselines.</footer>
+</body></html>

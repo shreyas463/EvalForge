@@ -123,6 +123,10 @@ def main(argv=None) -> int:
         prog="evalforge", description="Evaluate and gate paired AI targets"
     )
     sub = parser.add_subparsers(dest="command", required=True)
+    dashboard = sub.add_parser("dashboard", help="view saved experiments in a local browser")
+    dashboard.add_argument("--artifact-root", default=".evalforge")
+    dashboard.add_argument("--port", type=int, default=8765)
+    dashboard.add_argument("--open", action="store_true", dest="open_browser")
     validate = sub.add_parser("validate", help="validate a JSONL dataset")
     validate.add_argument("dataset")
     for command in ("run", "compare"):
@@ -162,6 +166,12 @@ def main(argv=None) -> int:
     db.add_argument("--database-url")
     args = parser.parse_args(argv)
     try:
+        if args.command == "dashboard":
+            from evalforge.dashboard import serve
+
+            if not 0 <= args.port <= 65535:
+                raise ValueError("port must be between 0 and 65535")
+            return serve(args.artifact_root, port=args.port, open_browser=args.open_browser)
         if args.command == "validate":
             dataset = load_jsonl(args.dataset)
             print(f"Valid: {dataset.name}, {len(dataset.cases)} cases, version={dataset.version}")
