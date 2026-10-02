@@ -120,3 +120,24 @@ footer { max-width: 1600px; margin: auto; padding: 0 32px 24px; color: #98a0ad; 
   .overview { padding: 18px; }
   footer { padding: 0 16px 20px; }
 }
+header #refresh { margin-left: auto; }
+header #help { margin-left: 0; font-size: 12px; }
+.help-panel { background: #fff; border: 1px solid var(--line); padding: 24px; border-radius: 12px; margin-bottom: 24px; }
+.help-panel[hidden] { display: none; }
+.help-panel ol { padding-left: 20px; font-size: 13px; color: #697386; }
+.help-panel li { margin: 12px 0; }
+.help-panel li strong { color: var(--ink); }
+.help-panel details p { margin: 10px 0; font-size: 12px; color: #697386; }
+.help-panel > .muted { margin-top: 18px; }
+.outcome { border-radius: 9px; padding: 16px 18px; margin-top: 18px; background: #f0f4fb; border-left: 3px solid var(--accent); }
+.outcome.FAIL, .outcome.ERROR { background: #fff5f5; border-color: var(--red); }
+.outcome.PASS { background: #f0f8f4; border-color: var(--green); }
+.outcome h2 { font-size: 16px; margin-bottom: 5px; }
+.outcome > p { font-size: 12px; color: #697386; line-height: 1.65; }
+.outcome-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.outcome-actions button { font-size: 12px; padding: 7px 10px; }
+.outcome-actions .secondary { background: transparent; border-color: transparent; }
+.score-guide { color: var(--muted); font-size: 11px; margin-top: 20px; }
+.gates { margin-top: 10px; }
+.metric-help { font-size: 11px; color: var(--muted); line-height: 1.55; min-height: 36px; margin-top: 7px; }
+@media (max-width: 520px) { header { gap: 8px; } header #refresh, header #help { font-size: 10px; padding: 7px; } }

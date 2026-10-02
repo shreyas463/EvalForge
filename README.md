@@ -91,7 +91,7 @@ evalforge dashboard --open
 The first command creates a clearly labeled rule-based support demonstration. The dashboard
 opens at `http://127.0.0.1:8765`, showing saved experiments, gate decisions and question-level
 baseline/candidate answers. RAG results additionally show retrieved passages, search scores,
-corpus versions, citations and judge evidence. Use **All questions** to inspect passing cases.
+corpus versions, citations and judge evidence. The page explains the result and next steps, distinguishes demo/model targets, and offers **How to use** guidance. Use **All questions** to inspect passing cases.
 Run a configured RAG experiment in another terminal, then click **Refresh results**.
 
 `--artifact-root PATH` selects another saved-result directory; `--port PORT` changes the local
