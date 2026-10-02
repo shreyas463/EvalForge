@@ -321,3 +321,46 @@ def test_metric_cutoff_is_passage_rank_not_unique_document_rank(corpus):
         ]
     )
     assert evaluator("retrieval_recall", k=2).evaluate(case, target).score == 0
+
+
+@pytest.mark.parametrize(
+    "backend", ["sqlite", pytest.param("postgres", marks=pytest.mark.postgres)]
+)
+def test_rag_evidence_sql_roundtrip(corpus, tmp_path, backend):
+    import os
+    from uuid import uuid4
+
+    from evalforge.datasets import dataset_hash
+    from evalforge.models import Dataset
+    from evalforge.runner import run_experiment
+    from evalforge.storage import SQLStore
+    from evalforge.targets import LocalTarget
+
+    url = (
+        f"sqlite:///{tmp_path / 'rag.db'}"
+        if backend == "sqlite"
+        else os.environ.get("EVALFORGE_TEST_DATABASE_URL")
+    )
+    if not url:
+        pytest.skip("EVALFORGE_TEST_DATABASE_URL not configured")
+    case = EvalCase(id="x", input="refund", metadata={"relevant_document_ids": ["refund.md"]})
+    dataset = Dataset(name=f"rag-{uuid4()}", version=dataset_hash([case]), cases=[case])
+    target = LocalTarget(lambda _: traced_target(corpus))
+    run = run_experiment(dataset, target, [evaluator("retrieval_recall")], target_name="rag")
+    store = SQLStore(url)
+    try:
+        store.save_run(run)
+        assert store.load_run(run.id) == run
+        assert (
+            store.load_run(run.id).cases[0].target.retrieval.passages[0].document_id == "refund.md"
+        )
+    finally:
+        store.close()
+
+
+def test_question_whitespace_and_multiline_trace_are_preserved(corpus):
+    question = "  What is the refund policy?\nPlease explain.  "
+    trace = BM25Retriever(corpus).retrieve(question)
+    assert trace.query == question
+    with pytest.raises(ValueError):
+        RetrievalTrace(query=" ", corpus_hash="hash", top_k=1)

@@ -47,13 +47,13 @@ class RetrievedPassage(Model):
     document_id: Name
     chunk_id: Name
     heading: str
-    text: Name
+    text: Annotated[str, Field(min_length=1)]
     rank: Annotated[int, Field(ge=1)]
     score: NonNegative
 
 
 class RetrievalTrace(Model):
-    query: Name
+    query: Annotated[str, Field(min_length=1)]
     corpus_hash: Name
     retriever: Name = "bm25-v1"
     top_k: Annotated[int, Field(ge=1)]
@@ -62,6 +62,8 @@ class RetrievalTrace(Model):
 
     @model_validator(mode="after")
     def ordered_unique_passages(self):
+        if not self.query.strip() or any(not p.text.strip() for p in self.passages):
+            raise ValueError("query and passages must contain text")
         ids = [p.chunk_id for p in self.passages]
         if len(ids) != len(set(ids)) or len(ids) > self.top_k:
             raise ValueError("retrieval passages must be unique and bounded by top_k")
