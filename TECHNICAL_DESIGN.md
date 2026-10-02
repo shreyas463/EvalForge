@@ -6,21 +6,29 @@
 ---
 
 
-# Implementation Ledger — Core Release 0.1.0
+# Implementation Ledger — Release 0.2.0
 
-The requested V0/V1 vertical slice is implemented as a Python library/CLI. The following 63 sections preserve the long-term product design; statements about services, advanced evaluators, or UI below describe **planned** functionality unless listed as implemented here.
+The requested V0/V1 vertical slice and the baseline/reliability/application-demo milestone are implemented as a Python library/CLI. The following 63 sections preserve the long-term product design; statements about services, advanced evaluators, or UI below describe **planned** functionality unless listed as implemented here.
 
 ## Implemented components
 
 | Build phase | Implementation | Validation |
 | --- | --- | --- |
 | A: Domain | Pydantic eval cases, datasets, target/evaluator results, runs, experiments, regression rules and decisions | Unknown-field, finite-value, result-status, unique-ID/metric and result-matrix tests |
-| B: Local engine | JSONL imports, content hashes, explicit mock fixtures, callable targets, deterministic checks, sequential runner, weighted scoring, paired comparison and terminal report | Golden evaluator cases, weighted/category regression tests, critical-case failures, missing-data/error tests |
+| B: Local engine | JSONL imports, content hashes, explicit mock fixtures, callable targets, deterministic checks, bounded concurrent runner, weighted scoring, paired comparison and terminal report | Golden evaluator cases, weighted/category regression tests, critical-case failures, missing-data/error tests |
 | C: Providers | Provider protocol; OpenAI-compatible HTTP chat target; structured judge with rubric, version, provider identity, confidence/rationale/evidence and usage capture | Controlled HTTP/structured-response tests; no live paid model calls validated |
 | D: Persistence | Atomic JSON artifacts; SQLAlchemy datasets/runs/experiments tables; PostgreSQL JSONB snapshots with immutable IDs/version labels and transactions | SQLite and real PostgreSQL round trips, idempotence, conflicts and rollback |
 | F: CLI/CI | Strict JSON config; validate/run/compare commands; exit codes 0/1/2/3; GitHub Actions with PostgreSQL, Python 3.11–3.14, coverage/style checks and installed-package regression demos | CLI pass/fail/error/config tests and 24-case offline demos; hosted CI results are recorded in the PR |
 
 Phase E (FastAPI/queue/workers), phases G–J (RAG/UI/agents/calibration), semantic similarity, embeddings, pairwise judging, production traces and adaptive generation are deferred. No frontend, API service, Redis, queue, or fake provider-backed feature has been added.
+
+## Reliability and application-demo extension
+
+Release 0.2.0 adds approved baseline selection by name/run ID and immutable approval history; Alembic initial-schema/adoption and baseline revisions; bounded concurrency; retryable-provider classification with Retry-After handling; shared request/time/observed-cost limits; local target keyword parameters; and prompt-file contents/hashes.
+
+The independent ForgeDesk demo (`src/evalforge/demos`, `examples/support`) implements an actual rule-based FAQ application and provider-backed prompt configurations. It evaluates eight authored cases, validates a seed pair, approves a saved baseline, runs only the candidate, and verifies the expected refund-category regression. The wrapper returns success only if the expected blocked regression is established. The offline application does not inspect case IDs, reference answers, or expected facts. The live version uses policy prompts, deterministic checks and a provider-backed judge; its complete 48-successful-call path is tested with controlled HTTP responses. No live paid validation is claimed because no credential was configured. Each live phase permits at most 40 provider attempts, including retries, with a 300-token output cap and cooperative 300-second deadline; this is not a dollar billing cap.
+
+The GitHub Actions workflow runs the offline approved-baseline application demo in addition to the original fixture gates. Dashboard, RAG/agent features and API/worker services remain deferred.
 
 ## Concrete repository structure
 
@@ -37,7 +45,10 @@ src/evalforge/
   storage.py      atomic JSON + immutable SQL snapshots
   config.py       validated JSON configuration + component construction
   report.py       terminal metrics and failure evidence
-  cli.py          validate / run / compare and exit codes
+  cli.py          validate / run / compare / baseline / db and exit codes
+  budgets.py      shared cooperative budgets and request reservations
+  migrations/     versioned core/adoption and approval revisions
+  demos/          rule-based/provider-backed support application and workflow
   __main__.py     python -m evalforge
  tests/           pytest unit, integration, CLI and PostgreSQL coverage
  evals/support.jsonl
@@ -63,7 +74,9 @@ Implemented deterministic kinds: exact match (optional trimming/case folding), r
 
 LLMJudge calls a Provider protocol with a rubric system message and a JSON evidence user message. It requests JSON object mode and validates a score, optional confidence, reason and optional evidence list. Malformed or unavailable judgments become evaluator errors. Judge prompt/spec versions, provider configuration and separate judge token/cost metadata are persisted. Rubric instructions identify case/output data as untrusted; this is not a guarantee against judge prompt injection or bias. Human calibration remains planned.
 
-ChatProvider implements synchronous `/chat/completions`, configurable endpoint/model/environment credential name, timeout and temperature. It rejects incomplete/non-text/malformed completions and sanitizes transport/status errors. Endpoints/models must support these options and JSON object mode for judges. Native provider SDKs, streaming, Responses API, tool use, retries and model-specific parameter negotiation are not implemented. Mock targets only return explicitly supplied fixture outputs; they never silently copy the expected answer. Tests use controlled providers/transports; live paid API validation remains outstanding.
+ChatProvider implements synchronous `/chat/completions`, configurable endpoint/model/environment credential name, timeout, temperature, output-token limit and bounded retry settings. It rejects incomplete/non-text/malformed completions and sanitizes transport/status errors. Endpoints/models must support these options and JSON object mode for judges. Native provider SDKs, streaming, Responses API, tool use and model-specific parameter negotiation are not implemented. Transient status/transport failures can retry with exponential jitter; valid Retry-After hints are respected and excessive hints/deadlines stop retries. Quota/billing/authentication errors and malformed completions do not retry. Mock targets only return explicitly supplied fixture outputs; they never silently copy the expected answer. Tests use controlled providers/transports; live paid API validation remains outstanding.
+
+Execution is bounded by a configurable thread pool (1–32 cases), preserving input order and keeping at most that many futures in flight. Plugins must be thread-safe. One budget can span baseline/candidate and all built-in provider/judge/retry attempts. Request reservations enforce an exact invocation-wide attempt ceiling. Elapsed-time and observed-cost limits are cooperative: no arbitrary Python thread is killed; in-flight work drains, overdue/budgeted results become explicit errors, and unused cases retain error evidence. The observed-cost threshold is not a hard billing cap and may be overshot by in-flight calls or billed failures with unknown usage. Unknown cost blocks cost-limited continuation. Custom providers must integrate the budget context themselves. Run execution summaries record cumulative shared counters. New optional Run fields normalize defaults when comparing historical SQL payloads for idempotence without rewriting those payloads.
 
 Latency is measured around target execution, including failures. Provider usage is recorded when returned; cost is unknown unless both per-million token prices are explicitly configured and usage is available. No current model pricing is hardcoded. Judge usage is separate from target operational metrics.
 
@@ -79,9 +92,11 @@ Quality rules support `min_score`, absolute `max_regression`, fractional `max_re
 
 Each invocation creates a fresh UUID artifact directory: baseline/candidate/comparison/experiment JSON, aggregate metrics JSON and a text report. JSON writes use a temporary file, fsync and replace. Artifacts remain available if the optional SQL write fails; an invocation can leave partial artifacts after an interruption/storage failure. The CLI prints exit 3 for storage failures.
 
-SQLStore uses `evalforge_datasets` with composite name/version key and content hash, `evalforge_runs` with dataset foreign keys, and `evalforge_experiments` with run foreign keys. Full validated payloads are stored as JSONB on PostgreSQL (JSON on SQLite), preserving evidence instead of prematurely normalizing an unfinished schema. Experiment plus both runs are inserted in one transaction. IDs/version labels cannot overwrite differing payloads; identical repeat writes are idempotent. `create_all` initializes tables. Normalized entity tables from section 31, migrations, query/report service, baseline approval registry, concurrent insert retries, retention and RBAC are future work.
+SQLStore uses `evalforge_datasets` with composite name/version key and content hash, `evalforge_runs` with dataset foreign keys, and `evalforge_experiments` with run foreign keys. Full validated payloads are stored as JSONB on PostgreSQL (JSON on SQLite), preserving evidence instead of prematurely normalizing an unfinished schema. Experiment plus both runs are inserted in one transaction. IDs/version labels cannot overwrite differing payloads; identical repeat writes are idempotent. Packaged Alembic revisions initialize tables and adopt validated existing V1 schemas; partial/mismatched schemas are rejected, and PostgreSQL migrations take an advisory transaction lock. A second revision adds append-only baseline approvals with named/latest and exact run-ID selection, approver/note/timestamp audit fields, and immutable historical runs. Approval rejects execution errors, unknown judgments, lack of scored evidence and failed/unscored critical cases. Normalized entity tables from section 31, query/report service, concurrent insert retries, retention and RBAC remain future work.
 
 `validate` checks JSONL; `run` builds baseline/candidate targets and evaluators, executes and persists; `compare` loads saved runs and applies config gates without executing targets. Configuration is JSON, rather than the conceptual YAML in section 29. Config paths are relative to the config file; local callables must be importable `module:function`. The shared config still requires target/dataset fields for `compare`; they are not used to execute anything. `EVALFORGE_DATABASE_URL` or `--database-url` selects optional SQL storage.
+
+CLI extensions: `baseline approve/show/history`, candidate-only `run --baseline-name/--baseline-id`, and `db status/upgrade`. Named baseline resolution uses the latest audit sequence; exact run-ID selection requires a prior approval. Compatibility is checked before executing the candidate. Approver strings are audit labels, not authentication. Destructive database downgrades are unsupported.
 
 Exit codes: 0 pass/valid, 1 blocking regression, 2 invalid content/config/incompatible runs, 3 execution/provider/evaluator/evidence/missing-file/storage error. Missing files are operational errors. Secrets are read from environment variables; raw eval data is stored and requires appropriate handling.
 

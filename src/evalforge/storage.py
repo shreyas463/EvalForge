@@ -1,7 +1,7 @@
 """Atomic JSON artifacts and transactional immutable SQL snapshots.
 
 SQL tables intentionally store complete domain payloads in JSON/JSONB alongside indexed IDs.
-This V1 schema is initialized with create_all; schema migrations are a future requirement.
+Schema initialization and V1 adoption use packaged, versioned Alembic migrations.
 """
 
 import json
@@ -14,6 +14,7 @@ from sqlalchemy import (
     Column,
     ForeignKey,
     ForeignKeyConstraint,
+    Integer,
     MetaData,
     String,
     Table,
@@ -24,7 +25,8 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 
 from evalforge.datasets import dataset_hash, parse_json
-from evalforge.models import Experiment, Run
+from evalforge.migrations import upgrade_database
+from evalforge.models import BaselineApproval, Experiment, Run
 
 
 class StorageError(RuntimeError):
@@ -86,12 +88,23 @@ experiments = Table(
 )
 
 
+approvals = Table(
+    "evalforge_baseline_approvals",
+    metadata,
+    Column("sequence", Integer, primary_key=True, autoincrement=True),
+    Column("id", String, nullable=False, unique=True),
+    Column("name", String, nullable=False),
+    Column("run_id", String, ForeignKey("evalforge_runs.id"), nullable=False),
+    Column("payload", json_type, nullable=False),
+)
+
+
 class SQLStore:
     def __init__(self, url: str):
         self.engine = None
         try:
             self.engine = create_engine(url, hide_parameters=True)
-            metadata.create_all(self.engine)
+            upgrade_database(self.engine)
         except Exception:
             if self.engine is not None:
                 self.engine.dispose()
@@ -104,6 +117,12 @@ class SQLStore:
     def _immutable(connection, table, condition, values):
         existing = connection.execute(select(table).where(condition)).mappings().first()
         if existing:
+            existing = dict(existing)
+            # Add current defaults to old run payloads without rewriting historical evidence.
+            if table is runs:
+                existing["payload"] = Run.model_validate(existing["payload"]).model_dump(
+                    mode="json"
+                )
             if any(existing[key] != value for key, value in values.items()):
                 raise StorageError(f"immutable {table.name} snapshot conflicts with stored content")
         else:
@@ -184,3 +203,77 @@ class SQLStore:
 
     def load_experiment(self, identifier: str) -> Experiment:
         return self._load(experiments, identifier, Experiment)
+
+    def approve_baseline(
+        self, run: Run, *, name: str, approved_by: str, note: str = ""
+    ) -> BaselineApproval:
+        validate_baseline(run)
+        approval = BaselineApproval(name=name, run_id=run.id, approved_by=approved_by, note=note)
+        try:
+            with self.engine.begin() as connection:
+                self._save_run(connection, run)
+                connection.execute(
+                    insert(approvals).values(
+                        id=approval.id,
+                        name=name,
+                        run_id=run.id,
+                        payload=approval.model_dump(mode="json"),
+                    )
+                )
+        except StorageError:
+            raise
+        except Exception:
+            raise StorageError("baseline approval write failed") from None
+        return approval
+
+    def resolve_baseline(self, *, name: str | None = None, run_id: str | None = None) -> Run:
+        if (name is None) == (run_id is None):
+            raise ValueError("select exactly one baseline name or run ID")
+        condition = approvals.c.name == name if name is not None else approvals.c.run_id == run_id
+        try:
+            with self.engine.connect() as connection:
+                approved_run = connection.execute(
+                    select(approvals.c.run_id)
+                    .where(condition)
+                    .order_by(approvals.c.sequence.desc())
+                    .limit(1)
+                ).scalar_one_or_none()
+        except Exception:
+            raise StorageError("baseline lookup failed") from None
+        if approved_run is None:
+            raise StorageError("approved baseline not found")
+        run = self.load_run(approved_run)
+        validate_baseline(run)
+        return run
+
+    def baseline_history(self, name: str) -> list[BaselineApproval]:
+        with self.engine.connect() as connection:
+            payloads = (
+                connection.execute(
+                    select(approvals.c.payload)
+                    .where(approvals.c.name == name)
+                    .order_by(approvals.c.sequence)
+                )
+                .scalars()
+                .all()
+            )
+        return [BaselineApproval.model_validate(p) for p in payloads]
+
+
+def validate_baseline(run: Run):
+    # Revalidate nested objects because callers may have mutated their evidence in memory.
+    run = Run.model_validate(run.model_dump())
+    if dataset_hash([r.case for r in run.cases]) != run.dataset_hash:
+        raise ValueError("baseline dataset hash does not match evidence")
+    if run.status == "ERROR" or any(
+        e.status in {"ERROR", "UNKNOWN"} for row in run.cases for e in row.evaluations
+    ):
+        raise ValueError("cannot approve a baseline with execution errors or unknown judgments")
+    if not any(e.score is not None for row in run.cases for e in row.evaluations):
+        raise ValueError("cannot approve a baseline without scored evidence")
+    for row in run.cases:
+        if row.case.critical and (
+            any(e.status == "FAIL" for e in row.evaluations)
+            or not any(e.score is not None for e in row.evaluations)
+        ):
+            raise ValueError(f"cannot approve failed or unscored critical case: {row.case.id}")

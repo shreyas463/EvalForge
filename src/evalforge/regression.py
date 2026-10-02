@@ -38,7 +38,16 @@ def _validate_pair(baseline: Run, candidate: Run):
     for key in before:
         b = {e.metric: e.status == "SKIPPED" for e in before[key].evaluations}
         c = {e.metric: e.status == "SKIPPED" for e in after[key].evaluations}
-        if b != c and before[key].target.status != "ERROR" and after[key].target.status != "ERROR":
+        if (
+            b != c
+            and before[key].target.status != "ERROR"
+            and after[key].target.status != "ERROR"
+            and not any(
+                e.status in {"ERROR", "UNKNOWN"}
+                for row in (before[key], after[key])
+                for e in row.evaluations
+            )
+        ):
             raise ComparisonError(f"evaluator applicability changed for case {key}")
 
 

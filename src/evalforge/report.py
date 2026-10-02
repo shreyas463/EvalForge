@@ -40,6 +40,10 @@ def render_report(baseline: Run, candidate: Run, comparison: Comparison) -> str:
                     f"Baseline evaluator error [{row.case.id}/{evaluation.metric}]: "
                     f"{json.dumps(evaluation.explanation)}"
                 )
+    if candidate.execution:
+        lines.append(
+            "Execution budget evidence: " + json.dumps(candidate.execution, sort_keys=True)
+        )
     lines.extend(["", "Candidate failures / errors:"])
     before = {r.case.id: r for r in baseline.cases}
     for row in candidate.cases:
