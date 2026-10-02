@@ -67,7 +67,7 @@ def test_http_routes_and_local_origin_guards(artifacts):
         with httpx.Client(base_url=base, trust_env=False) as client:
             response = client.get("/")
             assert response.status_code == 200
-            assert "See what changed" in response.text
+            assert "Experiment results" in response.text
             assert "default-src 'self'" in response.headers["content-security-policy"]
             for path in ("/dashboard.js", "/dashboard.css"):
                 assert client.get(path).status_code == 200
