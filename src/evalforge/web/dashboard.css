@@ -141,3 +141,17 @@ header #help { margin-left: 0; font-size: 12px; }
 .gates { margin-top: 10px; }
 .metric-help { font-size: 11px; color: var(--muted); line-height: 1.55; min-height: 36px; margin-top: 7px; }
 @media (max-width: 520px) { header { gap: 8px; } header #refresh, header #help { font-size: 10px; padding: 7px; } }
+.run-panel { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 20px; margin-bottom: 24px; }
+.run-panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.run-panel-heading h2 { font-size: 16px; }
+.run-panel-heading button { font-size: 11px; }
+.run-panel > p { color: var(--muted); font-size: 12px; margin: 8px 0; }
+.run-panel > label { display: block; font-size: 12px; margin: 12px 0 6px; }
+.run-panel > select { max-width: 100%; min-width: min(340px, 100%); font-size: 12px; }
+.run-panel > button { margin-top: 12px; background: var(--accent); color: white; border-color: var(--accent); font-size: 12px; }
+button:disabled { opacity: .5; cursor: not-allowed; }
+#setup-issues { margin: 8px 0; padding-left: 18px; color: #977c45; font-size: 12px; }
+#paid-consent[hidden] { display: none; }
+#paid-consent { color: #697386; }
+#job-status { font-size: 12px; margin-top: 12px; color: #697386; }
+#job-status button { font-size: 11px; margin-left: 10px; }

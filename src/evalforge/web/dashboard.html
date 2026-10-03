@@ -17,7 +17,7 @@
   <main>
     <section class="intro">
       <div><h1>Experiment results</h1><p>Did your change make the answers better or worse? Start with the result, then review the questions.</p></div>
-      <span class="view-label">Read-only explorer</span>
+      <span class="view-label">Local evaluation workspace</span>
     </section>
     <section id="getting-started" class="help-panel" hidden>
       <h2>How to use EvalForge</h2>
@@ -25,19 +25,30 @@
         <li><strong>Choose a saved test.</strong> The baseline is the reference version. The candidate is the changed version you are checking.</li>
         <li><strong>Read the result.</strong> Passed means required checks were met. Blocked means a quality rule failed. Incomplete means an execution or evidence problem prevented a reliable decision.</li>
         <li><strong>Review the questions.</strong> Compare both answers and expand their checks or source documents to understand what happened.</li>
-        <li><strong>Fix and test again.</strong> Change your application, documents or configuration, run another evaluation, then select Refresh results.</li>
+        <li><strong>Fix and test again.</strong> Change your application, documents or configuration, select Refresh setup, then Run evaluation. You can also run a test in the terminal and select Refresh results.</li>
       </ol>
       <details><summary>Create your first result</summary>
-        <p>From the project folder, with EvalForge installed, run the support demonstration:</p>
+        <p>Choose the enabled support configuration above and select Run evaluation. To generate both a passing and blocked demonstration from the project folder:</p>
         <code>python -m evalforge.demos.workflow</code>
         <p>This uses rules, not AI. It intentionally creates a passing run and a blocked run to demonstrate how EvalForge catches mistakes.</p>
       </details>
       <details><summary>Test actual model-generated RAG answers</summary>
-        <p>Configure the model IDs in examples/rag/live.json and set the provider credential locally. The model and judge must support the configured endpoint. Then run:</p>
+        <p>Configure the model IDs in examples/rag/live.json and set the provider credential locally. The model and judge must support the configured endpoint. Select its configuration above, confirm model calls and select Run evaluation. Or run in the terminal:</p>
         <code>evalforge run --config examples/rag/live.json</code>
         <p>This example compares a complete document collection with one missing the refund policy. Calls may be paid. Refresh results after the run finishes.</p>
       </details>
-      <p class="muted">This page reads saved results. Refresh reloads them; it does not run a test or call a model.</p>
+      <p class="muted">Refresh results reloads saved comparisons. Run evaluation starts a new job using an explicitly enabled configuration.</p>
+    </section>
+    <section id="run-panel" class="run-panel">
+      <div class="run-panel-heading"><h2>Run an evaluation</h2><button id="check-setup">Refresh setup</button></div>
+      <p>Choose an enabled test configuration. EvalForge runs both versions and saves the comparison.</p>
+      <label for="run-profile">Test configuration</label>
+      <select id="run-profile" disabled><option>No configurations enabled</option></select>
+      <p id="profile-description" class="muted"></p>
+      <ul id="setup-issues"></ul>
+      <label id="paid-consent" hidden><input type="checkbox" id="confirm-model"> I understand this configuration calls a model provider and may incur costs.</label>
+      <button id="start-run" disabled>Run evaluation</button>
+      <div id="job-status" role="status" aria-live="polite"></div>
     </section>
     <p id="notice" role="status" aria-live="polite"></p>
     <div class="workspace">
@@ -53,6 +64,6 @@
       </section>
     </div>
   </main>
-  <footer>Reading saved results from your computer. Model execution and baseline approvals stay in the CLI.</footer>
+  <footer>Saved results stay on this computer. Model runs send inputs to your configured provider. Only configurations enabled at startup can run.</footer>
 </body>
 </html>

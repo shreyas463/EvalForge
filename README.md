@@ -4,7 +4,7 @@
 
 EvalForge runs paired baseline and candidate targets against a versioned JSONL dataset, preserves case-level evidence, scores outputs, and blocks configured regressions. Category and critical-case gates catch failures that an overall average can hide.
 
-**Status: core engine, RAG slice and local dashboard implemented (0.3.0).** This release includes the local CLI, approved baselines, bounded execution and retries, provider-backed model/judge interfaces, versioned PostgreSQL persistence, and a support-application regression demo. The RAG slice adds Markdown/BM25 retrieval, provider-generated cited answers, document retrieval metrics and a context-only faithfulness judge. A read-only local dashboard displays saved experiments. Agent evaluators, API/worker service, embeddings, human calibration and production ingestion remain planned.
+**Status: core engine, RAG slice and local dashboard implemented (0.4.0).** This release includes the local CLI, approved baselines, bounded execution and retries, provider-backed model/judge interfaces, versioned PostgreSQL persistence, and a support-application regression demo. The RAG slice adds Markdown/BM25 retrieval, provider-generated cited answers, document retrieval metrics and a context-only faithfulness judge. A local dashboard displays saved experiments and launches explicitly registered evaluations with background job status. Agent evaluators, hosted API/worker service, embeddings, human calibration and production ingestion remain planned.
 
 ## Quick start
 
@@ -85,21 +85,39 @@ From the repository root:
 
 ```bash
 python -m evalforge.demos.workflow
-evalforge dashboard --open
+evalforge dashboard --config examples/support/offline.json --config examples/rag/live.json --open
 ```
 
 The first command creates a clearly labeled rule-based support demonstration. The dashboard
 opens at `http://127.0.0.1:8765`, showing saved experiments, gate decisions and question-level
 baseline/candidate answers. RAG results additionally show retrieved passages, search scores,
 corpus versions, citations and judge evidence. The page explains the result and next steps, distinguishes demo/model targets, and offers **How to use** guidance. Use **All questions** to inspect passing cases.
-Run a configured RAG experiment in another terminal, then click **Refresh results**.
+Select the support configuration and click **Run evaluation** to try the complete browser
+workflow without an AI key. It evaluates eight questions and deliberately detects a regression:
+**Finished** means the job completed; **FAIL** means the candidate failed the quality checks.
+The saved comparison opens automatically. RAG uses a real model provider; its configuration
+stays blocked until model IDs and local credentials are configured. **Refresh setup** rechecks
+edited configuration files. Model runs also require confirmation and configured request, time
+and output-token limits. These limits are not a currency spending cap.
 
 `--artifact-root PATH` selects another saved-result directory; `--port PORT` changes the local
-port. The dashboard only reads validated JSON artifacts, including older non-RAG runs. It does
-not run models, approve baselines, browse SQL history, or expose a hosted multiuser service.
+port. Repeat `--config PATH` to enable trusted configuration files at startup. With no
+`--config`, the dashboard remains a results viewer. Only registered configurations can run;
+the browser cannot submit arbitrary file paths. One job runs at a time per artifact root.
+Browser jobs save JSON artifacts and do not write an inherited SQL database. Baseline approvals,
+SQL history and a hosted multiuser service remain outside this UI.
 It binds only to this computer and requires no frontend build tools. Keep the terminal running;
 Ctrl+C stops it. Incomplete/invalid artifacts are counted and skipped; individual experiments
 larger than 16 MiB are rejected. Experiment listing currently scans the artifact directory.
+
+Job state, a frozen configuration with absolute file references, and local diagnostic logs are
+saved under `ARTIFACT_ROOT/_jobs/JOB_ID/`. Inputs and local Python modules are read when the
+worker executes; completed experiments record their versions. A separate CLI process runs
+each job, with a deadline of the configured time budget (capped at one hour, default five
+minutes) plus 15 seconds. Normal shutdown stops the owned process. Restarted unfinished jobs
+are marked **Interrupted** and never retried automatically. After an unexpected server crash,
+a child process may survive: check local processes and saved artifacts before rerunning.
+This is a local worker, not a durable distributed queue.
 
 ## What works today
 
