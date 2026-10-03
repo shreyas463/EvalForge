@@ -1,6 +1,7 @@
-"""Read-only loopback dashboard for validated saved experiment artifacts."""
+"""Loopback dashboard for validated artifacts and registered local evaluation jobs."""
 
 import json
+import secrets
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from importlib.resources import files
@@ -9,6 +10,7 @@ from urllib.parse import urlsplit
 from uuid import UUID
 
 from evalforge.datasets import parse_json
+from evalforge.jobs import JobBusy, JobManager
 from evalforge.models import Experiment
 
 MAX_ARTIFACT_BYTES = 16 * 1024 * 1024
@@ -75,8 +77,10 @@ class ArtifactReader:
         return {"experiments": summaries, "invalid_artifacts": invalid}
 
 
-def make_server(root: str | Path, *, port: int = 8765):
+def make_server(root: str | Path, *, port: int = 8765, configs=()):
     reader = ArtifactReader(root)
+    jobs = JobManager(root, configs)
+    token = secrets.token_urlsafe(32)
     html = files("evalforge").joinpath("web/dashboard.html").read_bytes()
     script = files("evalforge").joinpath("web/dashboard.js").read_bytes()
     stylesheet = files("evalforge").joinpath("web/dashboard.css").read_bytes()
@@ -99,6 +103,47 @@ def make_server(root: str | Path, *, port: int = 8765):
             self.end_headers()
             self.wfile.write(body)
 
+        def local_request(self):
+            hosts = {f"127.0.0.1:{self.server.server_port}", f"localhost:{self.server.server_port}"}
+            host, origin = self.headers.get("Host"), self.headers.get("Origin")
+            return host in hosts and (not origin or origin == f"http://{host}")
+
+        def do_POST(self):
+            if not self.local_request() or not secrets.compare_digest(
+                self.headers.get("X-EvalForge-Token", ""), token
+            ):
+                self.send(403, b'{"error":"local session required"}')
+                return
+            if self.path != "/api/jobs":
+                self.send(404, b'{"error":"route not found"}')
+                return
+            try:
+                length = int(self.headers.get("Content-Length", "0"))
+                if not 0 < length <= 4096 or self.headers.get("Content-Type") != "application/json":
+                    raise ValueError("expected a small JSON request")
+                payload = parse_json(self.rfile.read(length).decode("utf-8"))
+                if (
+                    not isinstance(payload, dict)
+                    or set(payload) - {"profile_id", "confirm_model_calls"}
+                    or not isinstance(payload.get("profile_id"), str)
+                    or not isinstance(payload.get("confirm_model_calls", False), bool)
+                ):
+                    raise ValueError("select a registered configuration")
+                job = jobs.submit(
+                    payload["profile_id"],
+                    confirm_model_calls=payload.get("confirm_model_calls", False),
+                )
+                self.send(202, json.dumps(job).encode())
+            except JobBusy as exc:
+                self.send(409, json.dumps({"error": str(exc)}).encode())
+            except KeyError:
+                self.send(404, b'{"error":"registered configuration not found"}')
+            except (ValueError, OSError):
+                self.send(
+                    422,
+                    b'{"error":"configuration is not ready; refresh setup"}',
+                )
+
         def do_GET(self):
             allowed_hosts = {
                 f"127.0.0.1:{self.server.server_port}",
@@ -120,7 +165,15 @@ def make_server(root: str | Path, *, port: int = 8765):
                 self.send(200, body, content_type)
                 return
             try:
-                if path == "/api/experiments":
+                if path == "/api/setup":
+                    payload = {
+                        "profiles": jobs.profiles(),
+                        "session_token": token,
+                        "active_job": jobs.active,
+                    }
+                elif path.startswith("/api/jobs/"):
+                    payload = jobs.get(path.removeprefix("/api/jobs/"))
+                elif path == "/api/experiments":
                     payload = reader.list()
                 elif path.startswith("/api/experiments/"):
                     payload = reader.load(path.removeprefix("/api/experiments/")).model_dump(
@@ -135,15 +188,27 @@ def make_server(root: str | Path, *, port: int = 8765):
                 self.send(422, b'{"error":"artifact cannot be read or validated"}')
 
     # No remote binding option: saved inputs/answers are local application data.
-    return ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    class Server(ThreadingHTTPServer):
+        def server_close(self):
+            jobs.close()
+            super().server_close()
+
+    try:
+        return Server(("127.0.0.1", port), Handler)
+    except OSError:
+        jobs.close()
+        raise
 
 
-def serve(root: str | Path, *, port: int = 8765, open_browser: bool = False):
-    server = make_server(root, port=port)
+def serve(root: str | Path, *, port: int = 8765, open_browser: bool = False, configs=()):
+    server = make_server(root, port=port, configs=configs)
     url = f"http://127.0.0.1:{server.server_port}"
     print(f"EvalForge dashboard: {url}", flush=True)
     print(f"Reading saved results from: {Path(root).resolve()}", flush=True)
-    print("Read-only local dashboard. Press Ctrl+C to stop.", flush=True)
+    print(
+        "Local dashboard. Only explicitly registered configurations can run. Press Ctrl+C to stop.",
+        flush=True,
+    )
     try:
         if open_browser:
             webbrowser.open(url)
