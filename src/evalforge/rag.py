@@ -157,3 +157,18 @@ class RAGTarget:
             cost=completion.cost,
             metadata={"provider_attempts": completion.attempts},
         )
+
+
+class RetrievalTarget:
+    """Evaluate real retrieval without generating or substituting an AI answer."""
+
+    def __init__(self, retriever: BM25Retriever, *, top_k=5):
+        self.retriever, self.top_k = retriever, top_k
+
+    def execute(self, case: EvalCase) -> TargetResult:
+        trace = self.retriever.retrieve(case.input, top_k=self.top_k)
+        return TargetResult(
+            output=f"Retrieved {len(trace.passages)} passages. No AI answer generated.",
+            retrieval=trace,
+            metadata={"mode": "retrieval_only"},
+        )

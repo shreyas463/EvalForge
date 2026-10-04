@@ -1,0 +1,3 @@
+# Sky (United Kingdom)
+
+In July 2013, the English High Court of Justice found that Microsoft’s use of the term "SkyDrive" infringed on Sky’s right to the "Sky" trademark. On 31 July 2013, BSkyB and Microsoft announced their settlement, in which Microsoft will not appeal the ruling, and will rename its SkyDrive cloud storage service after an unspecified "reasonable period of time to allow for an orderly transition to a new brand," plus "financial and other terms, the details of which are confidential". On 27 January 2014, Microsoft announced "that SkyDrive will soon become OneDrive" and "SkyDrive Pro" becomes "OneDrive for Business".

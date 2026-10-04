@@ -1,0 +1,3 @@
+# American Broadcasting Company
+
+While its radio network was undergoing reconstruction, ABC found it difficult to avoid falling behind on the new medium of television. To ensure a space, in 1947, ABC submitted five applications for television station licenses, one for each market where it owned and operated a radio station (New York City, Los Angeles, Chicago, San Francisco and Detroit). These applications all requested for the stations to broadcast on VHF channel 7, as Frank Marx, then ABC's vice-president of engineering, thought that the low-band VHF frequencies (corresponding to channels 2 through 6) would be requisitioned from broadcasting use and reallocated for the U.S. Army.

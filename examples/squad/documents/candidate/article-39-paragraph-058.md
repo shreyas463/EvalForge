@@ -1,0 +1,3 @@
+# Chloroplast
+
+Plastid differentiation is not permanent, in fact many interconversions are possible. Chloroplasts may be converted to chromoplasts, which are pigment-filled plastids responsible for the bright colors seen in flowers and ripe fruit. Starch storing amyloplasts can also be converted to chromoplasts, and it is possible for proplastids to develop straight into chromoplasts. Chromoplasts and amyloplasts can also become chloroplasts, like what happens when a carrot or a potato is illuminated. If a plant is injured, or something else causes a plant cell to revert to a meristematic state, chloroplasts and other plastids can turn back into proplastids. Chloroplast, amyloplast, chromoplast, proplast, etc., are not absolute states—intermediate forms are common.

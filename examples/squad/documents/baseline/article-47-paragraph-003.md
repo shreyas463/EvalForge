@@ -1,0 +1,3 @@
+# Force
+
+The shortcomings of Aristotelian physics would not be fully corrected until the 17th century work of Galileo Galilei, who was influenced by the late Medieval idea that objects in forced motion carried an innate force of impetus. Galileo constructed an experiment in which stones and cannonballs were both rolled down an incline to disprove the Aristotelian theory of motion early in the 17th century. He showed that the bodies were accelerated by gravity to an extent that was independent of their mass and argued that objects retain their velocity unless acted on by a force, for example friction.

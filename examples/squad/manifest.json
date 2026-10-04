@@ -1,0 +1,622 @@
+{
+  "source_url": "https://raw.githubusercontent.com/rajpurkar/SQuAD-explorer/eee5fdbf62f8613a7812b03419e6b29617b74fd1/dataset/dev-v1.1.json",
+  "source_revision": "eee5fdbf62f8613a7812b03419e6b29617b74fd1",
+  "source_sha256": "95aa6a52d5d6a735563366753ca50492a658031da74f301ac5238b03966972c9",
+  "license": "CC-BY-SA-4.0",
+  "split": "dev",
+  "selection": "SHA-256 of stable paragraph IDs; ascending; first N",
+  "paragraphs": 100,
+  "questions": 200,
+  "questions_per_paragraph": 2,
+  "articles": 44,
+  "document_sources": {
+    "article-12-paragraph-018.md": {
+      "title": "Oxygen",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Oxygen"
+    },
+    "article-47-paragraph-003.md": {
+      "title": "Force",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Force"
+    },
+    "article-32-paragraph-009.md": {
+      "title": "Jacksonville,_Florida",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Jacksonville%2C_Florida"
+    },
+    "article-05-paragraph-007.md": {
+      "title": "Teacher",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Teacher"
+    },
+    "article-39-paragraph-014.md": {
+      "title": "Chloroplast",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Chloroplast"
+    },
+    "article-46-paragraph-005.md": {
+      "title": "French_and_Indian_War",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/French_and_Indian_War"
+    },
+    "article-24-paragraph-033.md": {
+      "title": "American_Broadcasting_Company",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/American_Broadcasting_Company"
+    },
+    "article-23-paragraph-035.md": {
+      "title": "Victoria_and_Albert_Museum",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Victoria_and_Albert_Museum"
+    },
+    "article-24-paragraph-073.md": {
+      "title": "American_Broadcasting_Company",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/American_Broadcasting_Company"
+    },
+    "article-15-paragraph-010.md": {
+      "title": "European_Union_law",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/European_Union_law"
+    },
+    "article-47-paragraph-012.md": {
+      "title": "Force",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Force"
+    },
+    "article-09-paragraph-018.md": {
+      "title": "Victoria_(Australia)",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Victoria_%28Australia%29"
+    },
+    "article-31-paragraph-016.md": {
+      "title": "Harvard_University",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Harvard_University"
+    },
+    "article-41-paragraph-008.md": {
+      "title": "Rhine",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Rhine"
+    },
+    "article-01-paragraph-009.md": {
+      "title": "Warsaw",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Warsaw"
+    },
+    "article-00-paragraph-049.md": {
+      "title": "Super_Bowl_50",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Super_Bowl_50"
+    },
+    "article-37-paragraph-021.md": {
+      "title": "Kenya",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Kenya"
+    },
+    "article-47-paragraph-006.md": {
+      "title": "Force",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Force"
+    },
+    "article-27-paragraph-006.md": {
+      "title": "Immune_system",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Immune_system"
+    },
+    "article-24-paragraph-001.md": {
+      "title": "American_Broadcasting_Company",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/American_Broadcasting_Company"
+    },
+    "article-11-paragraph-016.md": {
+      "title": "Steam_engine",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Steam_engine"
+    },
+    "article-14-paragraph-010.md": {
+      "title": "Apollo_program",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Apollo_program"
+    },
+    "article-07-paragraph-035.md": {
+      "title": "Southern_California",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Southern_California"
+    },
+    "article-40-paragraph-011.md": {
+      "title": "Prime_number",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Prime_number"
+    },
+    "article-06-paragraph-058.md": {
+      "title": "Martin_Luther",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Martin_Luther"
+    },
+    "article-04-paragraph-040.md": {
+      "title": "Computational_complexity_theory",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Computational_complexity_theory"
+    },
+    "article-06-paragraph-049.md": {
+      "title": "Martin_Luther",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Martin_Luther"
+    },
+    "article-44-paragraph-036.md": {
+      "title": "Imperialism",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Imperialism"
+    },
+    "article-26-paragraph-011.md": {
+      "title": "Pharmacy",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Pharmacy"
+    },
+    "article-23-paragraph-009.md": {
+      "title": "Victoria_and_Albert_Museum",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Victoria_and_Albert_Museum"
+    },
+    "article-39-paragraph-047.md": {
+      "title": "Chloroplast",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Chloroplast"
+    },
+    "article-09-paragraph-020.md": {
+      "title": "Victoria_(Australia)",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Victoria_%28Australia%29"
+    },
+    "article-45-paragraph-004.md": {
+      "title": "United_Methodist_Church",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/United_Methodist_Church"
+    },
+    "article-10-paragraph-011.md": {
+      "title": "Huguenot",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Huguenot"
+    },
+    "article-36-paragraph-014.md": {
+      "title": "Yuan_dynasty",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Yuan_dynasty"
+    },
+    "article-11-paragraph-043.md": {
+      "title": "Steam_engine",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Steam_engine"
+    },
+    "article-03-paragraph-031.md": {
+      "title": "Nikola_Tesla",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Nikola_Tesla"
+    },
+    "article-46-paragraph-030.md": {
+      "title": "French_and_Indian_War",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/French_and_Indian_War"
+    },
+    "article-25-paragraph-044.md": {
+      "title": "Genghis_Khan",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Genghis_Khan"
+    },
+    "article-06-paragraph-061.md": {
+      "title": "Martin_Luther",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Martin_Luther"
+    },
+    "article-25-paragraph-036.md": {
+      "title": "Genghis_Khan",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Genghis_Khan"
+    },
+    "article-39-paragraph-058.md": {
+      "title": "Chloroplast",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Chloroplast"
+    },
+    "article-24-paragraph-015.md": {
+      "title": "American_Broadcasting_Company",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/American_Broadcasting_Company"
+    },
+    "article-18-paragraph-000.md": {
+      "title": "Fresno,_California",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Fresno%2C_California"
+    },
+    "article-39-paragraph-057.md": {
+      "title": "Chloroplast",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Chloroplast"
+    },
+    "article-44-paragraph-013.md": {
+      "title": "Imperialism",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Imperialism"
+    },
+    "article-11-paragraph-026.md": {
+      "title": "Steam_engine",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Steam_engine"
+    },
+    "article-44-paragraph-035.md": {
+      "title": "Imperialism",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Imperialism"
+    },
+    "article-34-paragraph-003.md": {
+      "title": "Doctor_Who",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Doctor_Who"
+    },
+    "article-28-paragraph-006.md": {
+      "title": "Civil_disobedience",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Civil_disobedience"
+    },
+    "article-44-paragraph-007.md": {
+      "title": "Imperialism",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Imperialism"
+    },
+    "article-42-paragraph-021.md": {
+      "title": "Scottish_Parliament",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Scottish_Parliament"
+    },
+    "article-02-paragraph-015.md": {
+      "title": "Normans",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Normans"
+    },
+    "article-37-paragraph-052.md": {
+      "title": "Kenya",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Kenya"
+    },
+    "article-24-paragraph-084.md": {
+      "title": "American_Broadcasting_Company",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/American_Broadcasting_Company"
+    },
+    "article-35-paragraph-026.md": {
+      "title": "University_of_Chicago",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/University_of_Chicago"
+    },
+    "article-45-paragraph-017.md": {
+      "title": "United_Methodist_Church",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/United_Methodist_Church"
+    },
+    "article-13-paragraph-019.md": {
+      "title": "1973_oil_crisis",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/1973_oil_crisis"
+    },
+    "article-07-paragraph-034.md": {
+      "title": "Southern_California",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Southern_California"
+    },
+    "article-39-paragraph-026.md": {
+      "title": "Chloroplast",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Chloroplast"
+    },
+    "article-27-paragraph-008.md": {
+      "title": "Immune_system",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Immune_system"
+    },
+    "article-45-paragraph-033.md": {
+      "title": "United_Methodist_Church",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/United_Methodist_Church"
+    },
+    "article-03-paragraph-084.md": {
+      "title": "Nikola_Tesla",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Nikola_Tesla"
+    },
+    "article-10-paragraph-037.md": {
+      "title": "Huguenot",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Huguenot"
+    },
+    "article-34-paragraph-051.md": {
+      "title": "Doctor_Who",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Doctor_Who"
+    },
+    "article-17-paragraph-020.md": {
+      "title": "Ctenophora",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Ctenophora"
+    },
+    "article-10-paragraph-033.md": {
+      "title": "Huguenot",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Huguenot"
+    },
+    "article-01-paragraph-003.md": {
+      "title": "Warsaw",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Warsaw"
+    },
+    "article-08-paragraph-007.md": {
+      "title": "Sky_(United_Kingdom)",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Sky_%28United_Kingdom%29"
+    },
+    "article-24-paragraph-007.md": {
+      "title": "American_Broadcasting_Company",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/American_Broadcasting_Company"
+    },
+    "article-13-paragraph-004.md": {
+      "title": "1973_oil_crisis",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/1973_oil_crisis"
+    },
+    "article-28-paragraph-017.md": {
+      "title": "Civil_disobedience",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Civil_disobedience"
+    },
+    "article-38-paragraph-014.md": {
+      "title": "Intergovernmental_Panel_on_Climate_Change",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Intergovernmental_Panel_on_Climate_Change"
+    },
+    "article-03-paragraph-014.md": {
+      "title": "Nikola_Tesla",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Nikola_Tesla"
+    },
+    "article-29-paragraph-014.md": {
+      "title": "Construction",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Construction"
+    },
+    "article-34-paragraph-032.md": {
+      "title": "Doctor_Who",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Doctor_Who"
+    },
+    "article-02-paragraph-039.md": {
+      "title": "Normans",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Normans"
+    },
+    "article-44-paragraph-004.md": {
+      "title": "Imperialism",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Imperialism"
+    },
+    "article-12-paragraph-007.md": {
+      "title": "Oxygen",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Oxygen"
+    },
+    "article-02-paragraph-027.md": {
+      "title": "Normans",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Normans"
+    },
+    "article-33-paragraph-009.md": {
+      "title": "Economic_inequality",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Economic_inequality"
+    },
+    "article-23-paragraph-001.md": {
+      "title": "Victoria_and_Albert_Museum",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Victoria_and_Albert_Museum"
+    },
+    "article-46-paragraph-017.md": {
+      "title": "French_and_Indian_War",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/French_and_Indian_War"
+    },
+    "article-01-paragraph-007.md": {
+      "title": "Warsaw",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Warsaw"
+    },
+    "article-25-paragraph-003.md": {
+      "title": "Genghis_Khan",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Genghis_Khan"
+    },
+    "article-43-paragraph-016.md": {
+      "title": "Islamism",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Islamism"
+    },
+    "article-44-paragraph-020.md": {
+      "title": "Imperialism",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Imperialism"
+    },
+    "article-03-paragraph-075.md": {
+      "title": "Nikola_Tesla",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Nikola_Tesla"
+    },
+    "article-08-paragraph-006.md": {
+      "title": "Sky_(United_Kingdom)",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Sky_%28United_Kingdom%29"
+    },
+    "article-36-paragraph-012.md": {
+      "title": "Yuan_dynasty",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Yuan_dynasty"
+    },
+    "article-19-paragraph-016.md": {
+      "title": "Packet_switching",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Packet_switching"
+    },
+    "article-45-paragraph-006.md": {
+      "title": "United_Methodist_Church",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/United_Methodist_Church"
+    },
+    "article-16-paragraph-015.md": {
+      "title": "Amazon_rainforest",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Amazon_rainforest"
+    },
+    "article-27-paragraph-025.md": {
+      "title": "Immune_system",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Immune_system"
+    },
+    "article-27-paragraph-024.md": {
+      "title": "Immune_system",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Immune_system"
+    },
+    "article-10-paragraph-034.md": {
+      "title": "Huguenot",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Huguenot"
+    },
+    "article-07-paragraph-032.md": {
+      "title": "Southern_California",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Southern_California"
+    },
+    "article-01-paragraph-010.md": {
+      "title": "Warsaw",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Warsaw"
+    },
+    "article-01-paragraph-022.md": {
+      "title": "Warsaw",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Warsaw"
+    },
+    "article-26-paragraph-016.md": {
+      "title": "Pharmacy",
+      "wikipedia_article": "https://en.wikipedia.org/wiki/Pharmacy"
+    }
+  },
+  "removed_documents": [
+    "article-00-paragraph-049.md",
+    "article-01-paragraph-003.md",
+    "article-01-paragraph-007.md",
+    "article-01-paragraph-009.md",
+    "article-01-paragraph-010.md",
+    "article-01-paragraph-022.md",
+    "article-02-paragraph-015.md",
+    "article-02-paragraph-027.md",
+    "article-02-paragraph-039.md",
+    "article-03-paragraph-014.md"
+  ],
+  "files": {
+    "ATTRIBUTION.md": "df887356ecdadcbf182bd7f55104edf7ee2ba6bb5de2c06b5809e7b65e646554",
+    "cases.jsonl": "8304d11c205e6f8a262dd9af28fce702b98667cb0f43fa54341de246a1bb483d",
+    "documents/baseline/article-00-paragraph-049.md": "4dfcdd360bd732da72b02e14683e5e2540d2beafe7103cfb53e0c316075e606c",
+    "documents/baseline/article-01-paragraph-003.md": "5e5b9e314c960d49b24155af3cffeab4ff779c236c01c106d2c9978ab02ac8ce",
+    "documents/baseline/article-01-paragraph-007.md": "84e0a1ad6b44414ffeec8f3ec17ae1131e8291b9dd6ba482c490bfe6abafef26",
+    "documents/baseline/article-01-paragraph-009.md": "e229886780a221d78f81c7f3feb65093a9ab5e4f0e31a016422d0241041b5d46",
+    "documents/baseline/article-01-paragraph-010.md": "93caf049aa25c2634e220ee1cd6775b0849103c45d075af371774fc669b2f7c3",
+    "documents/baseline/article-01-paragraph-022.md": "401ac434ac3f5fcae91d1cb80c63582e25edc46471ab8fdbf068520fd38bae23",
+    "documents/baseline/article-02-paragraph-015.md": "dbff808a59d071f44966c4a715a0238c9cdff3f5950dfad26857c64564b7577e",
+    "documents/baseline/article-02-paragraph-027.md": "72b9c139682c190e5016197211a75a47843c048b2e1cac463094ea0f51e10787",
+    "documents/baseline/article-02-paragraph-039.md": "1c7e50d27b06db6a25c3b69112338a4ea4cdcbdeecc57caad6e8ccd700dbb941",
+    "documents/baseline/article-03-paragraph-014.md": "09d824cb3eec1197fa88f8fa671c85100668c9d0920a0c69da1d50b3ee7ad5cb",
+    "documents/baseline/article-03-paragraph-031.md": "5e53b58f75c8bfb9ccbfb3de0f7911318eaa0a08b71e2feb7b2999be3038b45c",
+    "documents/baseline/article-03-paragraph-075.md": "ce3198ec5311b23455dfea8210702a45de824ff4d664be901da851f591b1409d",
+    "documents/baseline/article-03-paragraph-084.md": "056a7520f30145613b057c2a516f60d75b246212a20f37c04df7d0f458b9b229",
+    "documents/baseline/article-04-paragraph-040.md": "cf2cb95cca70b776f61e8bf94dce163d1ab0263a3cb7c8d8b76b58d2a3cafb5b",
+    "documents/baseline/article-05-paragraph-007.md": "dbc9c3ceb7e37c639b7f0440619627deb873ee209d93ecf31053c98d09ad5f8c",
+    "documents/baseline/article-06-paragraph-049.md": "5fb90a99a822c4f226b26083cec137034ccefbca7bc04961f76f791f68740f32",
+    "documents/baseline/article-06-paragraph-058.md": "052155d772a3afa3a9cc49b514d15090a4aff7ccc95146f288708ceea287a388",
+    "documents/baseline/article-06-paragraph-061.md": "54b48d13aac6ea6367ae8562944d9e28b46edff6b1ed6ba12dbad4415fcb5b91",
+    "documents/baseline/article-07-paragraph-032.md": "7cbb7b5ad00234d3e3c7c951831fb92bc0f0464c710443c732f5c426b62fbfad",
+    "documents/baseline/article-07-paragraph-034.md": "7e5f00199bb0c2caa5cb0f3e6c2eeface3e942d7699d40d4d8591db687399899",
+    "documents/baseline/article-07-paragraph-035.md": "5ba570356ff6f446a3b7e46a1864336dc27e9cf6a2d1a259dd7d6cd442f4d93c",
+    "documents/baseline/article-08-paragraph-006.md": "31eafd3f5e47bc6b33b8d3f2803009122ef37f125a6a9afcf102ef6f720ed906",
+    "documents/baseline/article-08-paragraph-007.md": "485889d65f0bafed24b60c3884c25f98d4e1e556f42b72d433b5d375194e2b28",
+    "documents/baseline/article-09-paragraph-018.md": "0e78f07dde9dfbb7239b04a4dbb646d6ff605cc6577aa4d67fa711f1902c1e1b",
+    "documents/baseline/article-09-paragraph-020.md": "38108f29adf5160b08f9a2db1939e1f3cb4bbdb479bcf6456c685265f88d6541",
+    "documents/baseline/article-10-paragraph-011.md": "b0d7aee68ef388edee23511a6d813968289bc6ef5a642e59d93e8df94fe2d362",
+    "documents/baseline/article-10-paragraph-033.md": "d4de4f84fbd592e9b8ba2717261e88a2ae3ff4a1ac2bc1f0abf5bb7683ac11fc",
+    "documents/baseline/article-10-paragraph-034.md": "ddac8147b87ece4cf59c9d7246a7242ad7993c58cb51064e6b1f77a28c27bdfb",
+    "documents/baseline/article-10-paragraph-037.md": "4ff337060c32b34dbffd538ca27d9148fcdf46c597ad7900b7449b14f67549d6",
+    "documents/baseline/article-11-paragraph-016.md": "7bbad1195dca3715c5615a317957b058b866755afe34cfa9b5fd2f063221b92d",
+    "documents/baseline/article-11-paragraph-026.md": "84e9345b6ff690fcc32aef40858aa42da836e1ca183126022d8f907227849a6c",
+    "documents/baseline/article-11-paragraph-043.md": "789f4ff793d754f9e0c01fc93705486e0ce95226065baffc0068dce2ca62678f",
+    "documents/baseline/article-12-paragraph-007.md": "0ce6af8eeabf9ad89f7e4cce3bbf174256d06094f063d484cca3170fefc2a5a5",
+    "documents/baseline/article-12-paragraph-018.md": "8c01d33fea7ca10511c9201bc328af8aaa426b1d4155afeaaf3aca541cf62ddc",
+    "documents/baseline/article-13-paragraph-004.md": "846841b61034de63f512098de364350e970cb3ac86ae322210f5b72ad62d81e9",
+    "documents/baseline/article-13-paragraph-019.md": "abd2c1a1252094e8ae2b92ef77cb0c922a15eb11390df72fb492c6e5ea0e0965",
+    "documents/baseline/article-14-paragraph-010.md": "31de35373bc36c5d15692662c7dc9db03d1f9935d67e0e263452da4f1564e291",
+    "documents/baseline/article-15-paragraph-010.md": "46c22c3992da21abcd4833e0f0031726ddd7007e2ca1698a396537a9b484d123",
+    "documents/baseline/article-16-paragraph-015.md": "b672edae1e1944d14695b3d3c8c4bd52b0ed50dad956df656316b3f6253b5479",
+    "documents/baseline/article-17-paragraph-020.md": "6024bdde7208837b033b753eff849bfadebf81a5131f31edc96e7a4157d17632",
+    "documents/baseline/article-18-paragraph-000.md": "1703e8f1bdc996e7d9b5ece64cc12387a44e9e45049573d2529c07c6bfeb54bd",
+    "documents/baseline/article-19-paragraph-016.md": "36b107e0eb4fc78f84a4e3190668ac5ed86278f294a593dd2c151a511eb8e131",
+    "documents/baseline/article-23-paragraph-001.md": "18d1458cf6d9fb1384901e6dc6470725cd2c6f39722b8ffff72d929ad2e70e9b",
+    "documents/baseline/article-23-paragraph-009.md": "5fd01b8c697d5391cdeaee30a67dab7fb72e5f117ae2166fbfa3c6f2c9e51f64",
+    "documents/baseline/article-23-paragraph-035.md": "f42b5422d2df7221c0ab2f53d1c3fac12272683dac125ce48afee50e4cf8ef1b",
+    "documents/baseline/article-24-paragraph-001.md": "a89aebe900849d5baffe18f31a06068028a9410b0d4dddedb575e5fc3eed0934",
+    "documents/baseline/article-24-paragraph-007.md": "0c7a6e63df62df6a9419f3f0dd917b6a017f2bd54c2abf5e9bd3f040224ae0e4",
+    "documents/baseline/article-24-paragraph-015.md": "1a3fd7bf0bd84a37452c4a51a3086a2794886a9cf05d6ebb2e35c996b5438e0b",
+    "documents/baseline/article-24-paragraph-033.md": "5fa7b674fa63b2fd3b78a0bc65d37de1daf1c00a0e9fb59d2c94bb553a1c39f6",
+    "documents/baseline/article-24-paragraph-073.md": "e1c519aee369d8ab6394494f62eb39b9a3301bdf69a4be6fbeaddc3d49dc95b6",
+    "documents/baseline/article-24-paragraph-084.md": "88694bb26010d7317c2008ed3475fb8d6322c25bbbdaecbb4c529be097b138ba",
+    "documents/baseline/article-25-paragraph-003.md": "693bfbdf4bd96fcb57db6604cc217c156e85a432ca1aa2d0c183d05400311921",
+    "documents/baseline/article-25-paragraph-036.md": "d2f882664516b058c677c116df0a66581e39fff0e3610c2ea878b14c8b0a043a",
+    "documents/baseline/article-25-paragraph-044.md": "79bfa05bfaa5072d22f010480c2cfacbe2a7ea4ec760aa424110d75b36b3285d",
+    "documents/baseline/article-26-paragraph-011.md": "57adab77040799427e234e0ca5c62c19b8ee181461cdf5ec9ec72c8733805fec",
+    "documents/baseline/article-26-paragraph-016.md": "4fa1bba793d4eb33a3e50827b57100cad87190f4c0346416151ddb748d1112c6",
+    "documents/baseline/article-27-paragraph-006.md": "f0ad4f0110845d48dd421de8ded61e046e6a6148132621812a9fae1fa0d7d8ab",
+    "documents/baseline/article-27-paragraph-008.md": "3137de0f5123be4694c604f58fc6bf2b10d037341f9dfdc5176057a138323d75",
+    "documents/baseline/article-27-paragraph-024.md": "37d90f27d43c5b8a471899e5d46dd50bcb1fd40b0d7f0ba21422ae35ee9e97ba",
+    "documents/baseline/article-27-paragraph-025.md": "524b8fef2701140c44dcdb22d7b5b9759b5fe7f1242893a7cce5d6e38b28d248",
+    "documents/baseline/article-28-paragraph-006.md": "42c00fef87185ed3e8bd1e4d01f5db831c7a6ef4044fcf4c7f30f075a9b76bb7",
+    "documents/baseline/article-28-paragraph-017.md": "15d203f8243a94ae6f5a1f7e607fe47d2a8c39ac32e704c387efdbf327775f63",
+    "documents/baseline/article-29-paragraph-014.md": "ebd23ae1c336478236f4c44f8fe19ffdbd697ab68764b33bb59ad313f688d8aa",
+    "documents/baseline/article-31-paragraph-016.md": "6c83253da7af8e16cfee63acb1833d6b235436428e1d99ea4260ea2424a17e1f",
+    "documents/baseline/article-32-paragraph-009.md": "563c6c5853a0a25a1d8411db53f61cf3e3293099f1fc1d87e8c930d1c64da945",
+    "documents/baseline/article-33-paragraph-009.md": "7162e1dc74f5072fc5699e7fad63a4c0acc307f6b63624ebdfd5a08e4bfaffed",
+    "documents/baseline/article-34-paragraph-003.md": "91abc05d9e4b1c8ba7578069ca8f357a15a8397cbc10415c574612e0deb236b2",
+    "documents/baseline/article-34-paragraph-032.md": "ccdfe52fb92320c71217afae20aed099f26ec011f295656c13ec714bc6cf7391",
+    "documents/baseline/article-34-paragraph-051.md": "bd090bfffcc6df140037e19f5f5ab98c7e89a67905f72721497b2eb4cfad3f38",
+    "documents/baseline/article-35-paragraph-026.md": "b7fd7aa6d7bfbe3d84a44faf33e6c8b444723d8a9149c16e4b30479566a4c0e4",
+    "documents/baseline/article-36-paragraph-012.md": "396285302f7b568afb31ca9b13fd56aa4c98dc3698c41928f89805a5b574ccc7",
+    "documents/baseline/article-36-paragraph-014.md": "b11b75ee1e212c9207516422b6ed8b0b8543c8d49b07f0bcecaadd3583cc0c00",
+    "documents/baseline/article-37-paragraph-021.md": "7e6cd69522c59aa0f5fcc5d6a187c8926de5f34c458bed020b1bd0343eeb47d1",
+    "documents/baseline/article-37-paragraph-052.md": "700c5387f737ee30e36aed457cb70f6817e3a64e8962b5914635dd53db48e005",
+    "documents/baseline/article-38-paragraph-014.md": "df688d26481ccf3ac200971df64c1ac689dce50d59265effbd30a8a16b265e0f",
+    "documents/baseline/article-39-paragraph-014.md": "23e81ea1622c3dfad0cdc882069bafa572601b32f38e727d9943cbe68bbeae47",
+    "documents/baseline/article-39-paragraph-026.md": "18a626257a417c16070c3414379fd60358755c6ade3012efce978de7780a99de",
+    "documents/baseline/article-39-paragraph-047.md": "e4d5e53ed89d0e2de07fc990504e3a2e67a80a8f4ed120e42ca71bdbebb45190",
+    "documents/baseline/article-39-paragraph-057.md": "85c7799544ca1f1f5216817dfa06dd20204012aad6413dad5b603a16aa8679c1",
+    "documents/baseline/article-39-paragraph-058.md": "9433ee0d492935ab9e33be5f519e8d7568707091b6247256bdab315bd60f41c2",
+    "documents/baseline/article-40-paragraph-011.md": "335438ac6b89eeae15d5f4ccd0d8507d166ce59ac9cb08f5e1d660b62529fbbb",
+    "documents/baseline/article-41-paragraph-008.md": "cd3ff03056779500fef41c52551b130648f3a6884002d4df489420547706659a",
+    "documents/baseline/article-42-paragraph-021.md": "dfe1fc0137e00fc81ca5a5f46750d26a5afdf86d1f724f22fa521f7afe35f36a",
+    "documents/baseline/article-43-paragraph-016.md": "2c6484f31540517f6132a0613a7c5528a74178871fc5ca89a6af839fdf91bae8",
+    "documents/baseline/article-44-paragraph-004.md": "fe8d6ec2c5714214f3212e27ef5823eb865463b7dcd4cdc9c17e541725d5e232",
+    "documents/baseline/article-44-paragraph-007.md": "7ec4779d305c6032e889bf7eba53ebfc9a6455e9bea1211e0e1887ee9a13e95f",
+    "documents/baseline/article-44-paragraph-013.md": "682f45aaa178385a2dbfeba9af30de9d95de183cdc238baf388963b9e0cc1d45",
+    "documents/baseline/article-44-paragraph-020.md": "4b5d5819f1bd4685352d9c731eece3e6d89d90c5c8a9a321dac148cee65af4f7",
+    "documents/baseline/article-44-paragraph-035.md": "f38febf187a29aef252017e01359bd6879fbc401dc94e9a9f3453cea8275a904",
+    "documents/baseline/article-44-paragraph-036.md": "ba0cf7affb1225c02c7b09a441d7ba5caf95f8f1efa7027b62c22c61baba8742",
+    "documents/baseline/article-45-paragraph-004.md": "77811b195b1211ed9f6339cbebf23ab580e207935ab6ae36a935404f83f8f67b",
+    "documents/baseline/article-45-paragraph-006.md": "6ecca353ad9ce3666280b0894825079aaf22d1bdaa1312caf14c919fe6841a43",
+    "documents/baseline/article-45-paragraph-017.md": "1c431144d572b23bc2d543b2b2d15d6cfa011ac42328945655bc747cc2e6ddf8",
+    "documents/baseline/article-45-paragraph-033.md": "cd121ba09efbbaa29960edcd144e36af82af38658b5ed178807bfff391ca2486",
+    "documents/baseline/article-46-paragraph-005.md": "13e662835c9c3344021c906e344ac3e461d84fc217944cf6c3cbbd1c218a43f9",
+    "documents/baseline/article-46-paragraph-017.md": "6d1911b35c62e7ad42a67d33fa97211fcf49edd9259050daff2e0e271d80bfbf",
+    "documents/baseline/article-46-paragraph-030.md": "71a4fd962e88e78ed355116d682ff3fa4e16cf7ed308e3f2fac2275ada7ccc4e",
+    "documents/baseline/article-47-paragraph-003.md": "643dee91902c3fcb25fbd93ea7a7d17a2ddab9d9660c34315734b7ce282cd62b",
+    "documents/baseline/article-47-paragraph-006.md": "c410cbeb4b560006e23290fe0a900c7d9d9024c59bf36534f7b0ff56f2d2c821",
+    "documents/baseline/article-47-paragraph-012.md": "49efa87ede0662a613e59479241a97a6822f3033f4a8a963b3d18a16c4a550ec",
+    "documents/candidate/article-03-paragraph-031.md": "5e53b58f75c8bfb9ccbfb3de0f7911318eaa0a08b71e2feb7b2999be3038b45c",
+    "documents/candidate/article-03-paragraph-075.md": "ce3198ec5311b23455dfea8210702a45de824ff4d664be901da851f591b1409d",
+    "documents/candidate/article-03-paragraph-084.md": "056a7520f30145613b057c2a516f60d75b246212a20f37c04df7d0f458b9b229",
+    "documents/candidate/article-04-paragraph-040.md": "cf2cb95cca70b776f61e8bf94dce163d1ab0263a3cb7c8d8b76b58d2a3cafb5b",
+    "documents/candidate/article-05-paragraph-007.md": "dbc9c3ceb7e37c639b7f0440619627deb873ee209d93ecf31053c98d09ad5f8c",
+    "documents/candidate/article-06-paragraph-049.md": "5fb90a99a822c4f226b26083cec137034ccefbca7bc04961f76f791f68740f32",
+    "documents/candidate/article-06-paragraph-058.md": "052155d772a3afa3a9cc49b514d15090a4aff7ccc95146f288708ceea287a388",
+    "documents/candidate/article-06-paragraph-061.md": "54b48d13aac6ea6367ae8562944d9e28b46edff6b1ed6ba12dbad4415fcb5b91",
+    "documents/candidate/article-07-paragraph-032.md": "7cbb7b5ad00234d3e3c7c951831fb92bc0f0464c710443c732f5c426b62fbfad",
+    "documents/candidate/article-07-paragraph-034.md": "7e5f00199bb0c2caa5cb0f3e6c2eeface3e942d7699d40d4d8591db687399899",
+    "documents/candidate/article-07-paragraph-035.md": "5ba570356ff6f446a3b7e46a1864336dc27e9cf6a2d1a259dd7d6cd442f4d93c",
+    "documents/candidate/article-08-paragraph-006.md": "31eafd3f5e47bc6b33b8d3f2803009122ef37f125a6a9afcf102ef6f720ed906",
+    "documents/candidate/article-08-paragraph-007.md": "485889d65f0bafed24b60c3884c25f98d4e1e556f42b72d433b5d375194e2b28",
+    "documents/candidate/article-09-paragraph-018.md": "0e78f07dde9dfbb7239b04a4dbb646d6ff605cc6577aa4d67fa711f1902c1e1b",
+    "documents/candidate/article-09-paragraph-020.md": "38108f29adf5160b08f9a2db1939e1f3cb4bbdb479bcf6456c685265f88d6541",
+    "documents/candidate/article-10-paragraph-011.md": "b0d7aee68ef388edee23511a6d813968289bc6ef5a642e59d93e8df94fe2d362",
+    "documents/candidate/article-10-paragraph-033.md": "d4de4f84fbd592e9b8ba2717261e88a2ae3ff4a1ac2bc1f0abf5bb7683ac11fc",
+    "documents/candidate/article-10-paragraph-034.md": "ddac8147b87ece4cf59c9d7246a7242ad7993c58cb51064e6b1f77a28c27bdfb",
+    "documents/candidate/article-10-paragraph-037.md": "4ff337060c32b34dbffd538ca27d9148fcdf46c597ad7900b7449b14f67549d6",
+    "documents/candidate/article-11-paragraph-016.md": "7bbad1195dca3715c5615a317957b058b866755afe34cfa9b5fd2f063221b92d",
+    "documents/candidate/article-11-paragraph-026.md": "84e9345b6ff690fcc32aef40858aa42da836e1ca183126022d8f907227849a6c",
+    "documents/candidate/article-11-paragraph-043.md": "789f4ff793d754f9e0c01fc93705486e0ce95226065baffc0068dce2ca62678f",
+    "documents/candidate/article-12-paragraph-007.md": "0ce6af8eeabf9ad89f7e4cce3bbf174256d06094f063d484cca3170fefc2a5a5",
+    "documents/candidate/article-12-paragraph-018.md": "8c01d33fea7ca10511c9201bc328af8aaa426b1d4155afeaaf3aca541cf62ddc",
+    "documents/candidate/article-13-paragraph-004.md": "846841b61034de63f512098de364350e970cb3ac86ae322210f5b72ad62d81e9",
+    "documents/candidate/article-13-paragraph-019.md": "abd2c1a1252094e8ae2b92ef77cb0c922a15eb11390df72fb492c6e5ea0e0965",
+    "documents/candidate/article-14-paragraph-010.md": "31de35373bc36c5d15692662c7dc9db03d1f9935d67e0e263452da4f1564e291",
+    "documents/candidate/article-15-paragraph-010.md": "46c22c3992da21abcd4833e0f0031726ddd7007e2ca1698a396537a9b484d123",
+    "documents/candidate/article-16-paragraph-015.md": "b672edae1e1944d14695b3d3c8c4bd52b0ed50dad956df656316b3f6253b5479",
+    "documents/candidate/article-17-paragraph-020.md": "6024bdde7208837b033b753eff849bfadebf81a5131f31edc96e7a4157d17632",
+    "documents/candidate/article-18-paragraph-000.md": "1703e8f1bdc996e7d9b5ece64cc12387a44e9e45049573d2529c07c6bfeb54bd",
+    "documents/candidate/article-19-paragraph-016.md": "36b107e0eb4fc78f84a4e3190668ac5ed86278f294a593dd2c151a511eb8e131",
+    "documents/candidate/article-23-paragraph-001.md": "18d1458cf6d9fb1384901e6dc6470725cd2c6f39722b8ffff72d929ad2e70e9b",
+    "documents/candidate/article-23-paragraph-009.md": "5fd01b8c697d5391cdeaee30a67dab7fb72e5f117ae2166fbfa3c6f2c9e51f64",
+    "documents/candidate/article-23-paragraph-035.md": "f42b5422d2df7221c0ab2f53d1c3fac12272683dac125ce48afee50e4cf8ef1b",
+    "documents/candidate/article-24-paragraph-001.md": "a89aebe900849d5baffe18f31a06068028a9410b0d4dddedb575e5fc3eed0934",
+    "documents/candidate/article-24-paragraph-007.md": "0c7a6e63df62df6a9419f3f0dd917b6a017f2bd54c2abf5e9bd3f040224ae0e4",
+    "documents/candidate/article-24-paragraph-015.md": "1a3fd7bf0bd84a37452c4a51a3086a2794886a9cf05d6ebb2e35c996b5438e0b",
+    "documents/candidate/article-24-paragraph-033.md": "5fa7b674fa63b2fd3b78a0bc65d37de1daf1c00a0e9fb59d2c94bb553a1c39f6",
+    "documents/candidate/article-24-paragraph-073.md": "e1c519aee369d8ab6394494f62eb39b9a3301bdf69a4be6fbeaddc3d49dc95b6",
+    "documents/candidate/article-24-paragraph-084.md": "88694bb26010d7317c2008ed3475fb8d6322c25bbbdaecbb4c529be097b138ba",
+    "documents/candidate/article-25-paragraph-003.md": "693bfbdf4bd96fcb57db6604cc217c156e85a432ca1aa2d0c183d05400311921",
+    "documents/candidate/article-25-paragraph-036.md": "d2f882664516b058c677c116df0a66581e39fff0e3610c2ea878b14c8b0a043a",
+    "documents/candidate/article-25-paragraph-044.md": "79bfa05bfaa5072d22f010480c2cfacbe2a7ea4ec760aa424110d75b36b3285d",
+    "documents/candidate/article-26-paragraph-011.md": "57adab77040799427e234e0ca5c62c19b8ee181461cdf5ec9ec72c8733805fec",
+    "documents/candidate/article-26-paragraph-016.md": "4fa1bba793d4eb33a3e50827b57100cad87190f4c0346416151ddb748d1112c6",
+    "documents/candidate/article-27-paragraph-006.md": "f0ad4f0110845d48dd421de8ded61e046e6a6148132621812a9fae1fa0d7d8ab",
+    "documents/candidate/article-27-paragraph-008.md": "3137de0f5123be4694c604f58fc6bf2b10d037341f9dfdc5176057a138323d75",
+    "documents/candidate/article-27-paragraph-024.md": "37d90f27d43c5b8a471899e5d46dd50bcb1fd40b0d7f0ba21422ae35ee9e97ba",
+    "documents/candidate/article-27-paragraph-025.md": "524b8fef2701140c44dcdb22d7b5b9759b5fe7f1242893a7cce5d6e38b28d248",
+    "documents/candidate/article-28-paragraph-006.md": "42c00fef87185ed3e8bd1e4d01f5db831c7a6ef4044fcf4c7f30f075a9b76bb7",
+    "documents/candidate/article-28-paragraph-017.md": "15d203f8243a94ae6f5a1f7e607fe47d2a8c39ac32e704c387efdbf327775f63",
+    "documents/candidate/article-29-paragraph-014.md": "ebd23ae1c336478236f4c44f8fe19ffdbd697ab68764b33bb59ad313f688d8aa",
+    "documents/candidate/article-31-paragraph-016.md": "6c83253da7af8e16cfee63acb1833d6b235436428e1d99ea4260ea2424a17e1f",
+    "documents/candidate/article-32-paragraph-009.md": "563c6c5853a0a25a1d8411db53f61cf3e3293099f1fc1d87e8c930d1c64da945",
+    "documents/candidate/article-33-paragraph-009.md": "7162e1dc74f5072fc5699e7fad63a4c0acc307f6b63624ebdfd5a08e4bfaffed",
+    "documents/candidate/article-34-paragraph-003.md": "91abc05d9e4b1c8ba7578069ca8f357a15a8397cbc10415c574612e0deb236b2",
+    "documents/candidate/article-34-paragraph-032.md": "ccdfe52fb92320c71217afae20aed099f26ec011f295656c13ec714bc6cf7391",
+    "documents/candidate/article-34-paragraph-051.md": "bd090bfffcc6df140037e19f5f5ab98c7e89a67905f72721497b2eb4cfad3f38",
+    "documents/candidate/article-35-paragraph-026.md": "b7fd7aa6d7bfbe3d84a44faf33e6c8b444723d8a9149c16e4b30479566a4c0e4",
+    "documents/candidate/article-36-paragraph-012.md": "396285302f7b568afb31ca9b13fd56aa4c98dc3698c41928f89805a5b574ccc7",
+    "documents/candidate/article-36-paragraph-014.md": "b11b75ee1e212c9207516422b6ed8b0b8543c8d49b07f0bcecaadd3583cc0c00",
+    "documents/candidate/article-37-paragraph-021.md": "7e6cd69522c59aa0f5fcc5d6a187c8926de5f34c458bed020b1bd0343eeb47d1",
+    "documents/candidate/article-37-paragraph-052.md": "700c5387f737ee30e36aed457cb70f6817e3a64e8962b5914635dd53db48e005",
+    "documents/candidate/article-38-paragraph-014.md": "df688d26481ccf3ac200971df64c1ac689dce50d59265effbd30a8a16b265e0f",
+    "documents/candidate/article-39-paragraph-014.md": "23e81ea1622c3dfad0cdc882069bafa572601b32f38e727d9943cbe68bbeae47",
+    "documents/candidate/article-39-paragraph-026.md": "18a626257a417c16070c3414379fd60358755c6ade3012efce978de7780a99de",
+    "documents/candidate/article-39-paragraph-047.md": "e4d5e53ed89d0e2de07fc990504e3a2e67a80a8f4ed120e42ca71bdbebb45190",
+    "documents/candidate/article-39-paragraph-057.md": "85c7799544ca1f1f5216817dfa06dd20204012aad6413dad5b603a16aa8679c1",
+    "documents/candidate/article-39-paragraph-058.md": "9433ee0d492935ab9e33be5f519e8d7568707091b6247256bdab315bd60f41c2",
+    "documents/candidate/article-40-paragraph-011.md": "335438ac6b89eeae15d5f4ccd0d8507d166ce59ac9cb08f5e1d660b62529fbbb",
+    "documents/candidate/article-41-paragraph-008.md": "cd3ff03056779500fef41c52551b130648f3a6884002d4df489420547706659a",
+    "documents/candidate/article-42-paragraph-021.md": "dfe1fc0137e00fc81ca5a5f46750d26a5afdf86d1f724f22fa521f7afe35f36a",
+    "documents/candidate/article-43-paragraph-016.md": "2c6484f31540517f6132a0613a7c5528a74178871fc5ca89a6af839fdf91bae8",
+    "documents/candidate/article-44-paragraph-004.md": "fe8d6ec2c5714214f3212e27ef5823eb865463b7dcd4cdc9c17e541725d5e232",
+    "documents/candidate/article-44-paragraph-007.md": "7ec4779d305c6032e889bf7eba53ebfc9a6455e9bea1211e0e1887ee9a13e95f",
+    "documents/candidate/article-44-paragraph-013.md": "682f45aaa178385a2dbfeba9af30de9d95de183cdc238baf388963b9e0cc1d45",
+    "documents/candidate/article-44-paragraph-020.md": "4b5d5819f1bd4685352d9c731eece3e6d89d90c5c8a9a321dac148cee65af4f7",
+    "documents/candidate/article-44-paragraph-035.md": "f38febf187a29aef252017e01359bd6879fbc401dc94e9a9f3453cea8275a904",
+    "documents/candidate/article-44-paragraph-036.md": "ba0cf7affb1225c02c7b09a441d7ba5caf95f8f1efa7027b62c22c61baba8742",
+    "documents/candidate/article-45-paragraph-004.md": "77811b195b1211ed9f6339cbebf23ab580e207935ab6ae36a935404f83f8f67b",
+    "documents/candidate/article-45-paragraph-006.md": "6ecca353ad9ce3666280b0894825079aaf22d1bdaa1312caf14c919fe6841a43",
+    "documents/candidate/article-45-paragraph-017.md": "1c431144d572b23bc2d543b2b2d15d6cfa011ac42328945655bc747cc2e6ddf8",
+    "documents/candidate/article-45-paragraph-033.md": "cd121ba09efbbaa29960edcd144e36af82af38658b5ed178807bfff391ca2486",
+    "documents/candidate/article-46-paragraph-005.md": "13e662835c9c3344021c906e344ac3e461d84fc217944cf6c3cbbd1c218a43f9",
+    "documents/candidate/article-46-paragraph-017.md": "6d1911b35c62e7ad42a67d33fa97211fcf49edd9259050daff2e0e271d80bfbf",
+    "documents/candidate/article-46-paragraph-030.md": "71a4fd962e88e78ed355116d682ff3fa4e16cf7ed308e3f2fac2275ada7ccc4e",
+    "documents/candidate/article-47-paragraph-003.md": "643dee91902c3fcb25fbd93ea7a7d17a2ddab9d9660c34315734b7ce282cd62b",
+    "documents/candidate/article-47-paragraph-006.md": "c410cbeb4b560006e23290fe0a900c7d9d9024c59bf36534f7b0ff56f2d2c821",
+    "documents/candidate/article-47-paragraph-012.md": "49efa87ede0662a613e59479241a97a6822f3033f4a8a963b3d18a16c4a550ec",
+    "retrieval.json": "5acc1bff486fb6a12effbd2836cc480f4d6f4a7f806d1eda59dd2989b2370eee",
+    "unchanged.json": "1eae2ae9e59e719ee6535193bb603397850f859ac07cd73abd72aa3588cf0d6e"
+  }
+}

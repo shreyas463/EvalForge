@@ -1,0 +1,3 @@
+# French and Indian War
+
+Following the death of Braddock, William Shirley assumed command of British forces in North America. At a meeting in Albany in December 1755, he laid out his plans for 1756. In addition to renewing the efforts to capture Niagara, Crown Point and Duquesne, he proposed attacks on Fort Frontenac on the north shore of Lake Ontario and an expedition through the wilderness of the Maine district and down the Chaudière River to attack the city of Quebec. Bogged down by disagreements and disputes with others, including William Johnson and New York's Governor Sir Charles Hardy, Shirley's plan had little support.
