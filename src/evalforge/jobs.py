@@ -403,7 +403,7 @@ class JobManager:
             snapshot["dataset"] = str((base / config.dataset).resolve())
             for name in ("baseline", "candidate"):
                 target = snapshot[name]
-                for field in ("documents", "system_prompt_file"):
+                for field in ("documents", "system_prompt_file", "records"):
                     if target.get(field):
                         target[field] = str((base / target[field]).resolve())
             frozen = self.directory / identifier / "config.json"
