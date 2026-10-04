@@ -1,0 +1,3 @@
+# Martin Luther
+
+Luther's 1524 creedal hymn "Wir glauben all an einen Gott" ("We All Believe in One True God") is a three-stanza confession of faith prefiguring Luther's 1529 three-part explanation of the Apostles' Creed in the Small Catechism. Luther's hymn, adapted and expanded from an earlier German creedal hymn, gained widespread use in vernacular Lutheran liturgies as early as 1525. Sixteenth-century Lutheran hymnals also included "Wir glauben all" among the catechetical hymns, although 18th-century hymnals tended to label the hymn as Trinitarian rather than catechetical, and 20th-century Lutherans rarely use the hymn because of the perceived difficulty of its tune.

@@ -1,0 +1,3 @@
+# Pharmacy
+
+The clinical pharmacist's role involves creating a comprehensive drug therapy plan for patient-specific problems, identifying goals of therapy, and reviewing all prescribed medications prior to dispensing and administration to the patient. The review process often involves an evaluation of the appropriateness of the drug therapy (e.g., drug choice, dose, route, frequency, and duration of therapy) and its efficacy. The pharmacist must also monitor for potential drug interactions, adverse drug reactions, and assess patient drug allergies while designing and initiating a drug therapy plan.

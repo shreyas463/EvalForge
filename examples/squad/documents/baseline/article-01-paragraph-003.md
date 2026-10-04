@@ -1,0 +1,3 @@
+# Warsaw
+
+Demographically, it was the most diverse city in Poland, with significant numbers of foreign-born inhabitants. In addition to the Polish majority, there was a significant Jewish minority in Warsaw. According to Russian census of 1897, out of the total population of 638,000, Jews constituted 219,000 (around 34% percent). Warsaw's prewar Jewish population of more than 350,000 constituted about 30 percent of the city's total population. In 1933, out of 1,178,914 inhabitants 833,500 were of Polish mother tongue. World War II changed the demographics of the city, and to this day there is much less ethnic diversity than in the previous 300 years of Warsaw's history. Most of the modern day population growth is based on internal migration and urbanisation.

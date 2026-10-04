@@ -12,6 +12,7 @@ from uuid import UUID
 from evalforge.datasets import parse_json
 from evalforge.jobs import JobBusy, JobManager
 from evalforge.models import Experiment
+from evalforge.storage import StorageError
 
 MAX_ARTIFACT_BYTES = 16 * 1024 * 1024
 
@@ -114,7 +115,13 @@ def make_server(root: str | Path, *, port: int = 8765, configs=()):
             ):
                 self.send(403, b'{"error":"local session required"}')
                 return
-            if self.path not in {"/api/jobs", "/api/retrieval"}:
+            if self.path not in {
+                "/api/jobs",
+                "/api/retrieval",
+                "/api/cancel",
+                "/api/approve",
+                "/api/configure",
+            }:
                 self.send(404, b'{"error":"route not found"}')
                 return
             try:
@@ -122,6 +129,40 @@ def make_server(root: str | Path, *, port: int = 8765, configs=()):
                 if not 0 < length <= 4096 or self.headers.get("Content-Type") != "application/json":
                     raise ValueError("expected a small JSON request")
                 payload = parse_json(self.rfile.read(length).decode("utf-8"))
+                if self.path == "/api/approve":
+                    if (
+                        not isinstance(payload, dict)
+                        or set(payload) != {"experiment_id", "side", "name", "approved_by", "note"}
+                        or any(not isinstance(v, str) for v in payload.values())
+                    ):
+                        raise ValueError("provide an experiment and approval details")
+                    experiment = reader.load(payload.pop("experiment_id"))
+                    self.send(201, jobs.approve(experiment, **payload).model_dump_json().encode())
+                    return
+                if self.path == "/api/configure":
+                    if (
+                        not isinstance(payload, dict)
+                        or set(payload) != {"profile_id", "settings"}
+                        or not isinstance(payload["profile_id"], str)
+                        or not isinstance(payload["settings"], dict)
+                    ):
+                        raise ValueError("select a registered model configuration")
+                    self.send(
+                        200,
+                        json.dumps(
+                            jobs.configure(payload["profile_id"], payload["settings"])
+                        ).encode(),
+                    )
+                    return
+                if self.path == "/api/cancel":
+                    if (
+                        not isinstance(payload, dict)
+                        or set(payload) != {"job_id"}
+                        or not isinstance(payload["job_id"], str)
+                    ):
+                        raise ValueError("select a running job")
+                    self.send(200, json.dumps(jobs.cancel(payload["job_id"])).encode())
+                    return
                 if self.path == "/api/retrieval":
                     if (
                         not isinstance(payload, dict)
@@ -134,20 +175,32 @@ def make_server(root: str | Path, *, port: int = 8765, configs=()):
                     return
                 if (
                     not isinstance(payload, dict)
-                    or set(payload) - {"profile_id", "confirm_model_calls"}
+                    or set(payload) - {"profile_id", "confirm_model_calls", "baseline_name"}
                     or not isinstance(payload.get("profile_id"), str)
                     or not isinstance(payload.get("confirm_model_calls", False), bool)
+                    or (
+                        payload.get("baseline_name") is not None
+                        and not isinstance(payload["baseline_name"], str)
+                    )
                 ):
                     raise ValueError("select a registered configuration")
                 job = jobs.submit(
                     payload["profile_id"],
                     confirm_model_calls=payload.get("confirm_model_calls", False),
+                    baseline_name=payload.get("baseline_name"),
                 )
                 self.send(202, json.dumps(job).encode())
             except JobBusy as exc:
                 self.send(409, json.dumps({"error": str(exc)}).encode())
+            except FileNotFoundError:
+                self.send(404, b'{"error":"job not found"}')
             except KeyError:
                 self.send(404, b'{"error":"registered configuration not found"}')
+            except StorageError:
+                self.send(
+                    422,
+                    b'{"error":"local baseline unavailable; check approval and saved evidence"}',
+                )
             except (ValueError, OSError):
                 self.send(
                     422,
@@ -180,7 +233,12 @@ def make_server(root: str | Path, *, port: int = 8765, configs=()):
                         "profiles": jobs.profiles(),
                         "session_token": token,
                         "active_job": jobs.active,
+                        "baselines_enabled": bool(jobs.configs),
                     }
+                elif path == "/api/baselines":
+                    payload = {"baselines": jobs.baselines()}
+                elif path == "/api/jobs":
+                    payload = jobs.history()
                 elif path.startswith("/api/jobs/"):
                     payload = jobs.get(path.removeprefix("/api/jobs/"))
                 elif path == "/api/experiments":
@@ -194,7 +252,7 @@ def make_server(root: str | Path, *, port: int = 8765, configs=()):
                 self.send(200, json.dumps(payload, ensure_ascii=False, allow_nan=False).encode())
             except FileNotFoundError:
                 self.send(404, b'{"error":"experiment not found"}')
-            except (OSError, ValueError):
+            except (OSError, ValueError, StorageError):
                 self.send(422, b'{"error":"artifact cannot be read or validated"}')
 
     # No remote binding option: saved inputs/answers are local application data.
