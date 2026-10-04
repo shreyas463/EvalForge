@@ -4,7 +4,7 @@
 
 EvalForge runs paired baseline and candidate targets against a versioned JSONL dataset, preserves case-level evidence, scores outputs, and blocks configured regressions. Category and critical-case gates catch failures that an overall average can hide.
 
-**Status: core engine, RAG slice and local dashboard implemented (0.4.0).** This release includes the local CLI, approved baselines, bounded execution and retries, provider-backed model/judge interfaces, versioned PostgreSQL persistence, and a support-application regression demo. The RAG slice adds Markdown/BM25 retrieval, provider-generated cited answers, document retrieval metrics and a context-only faithfulness judge. A local dashboard displays saved experiments and launches explicitly registered evaluations with background job status. Its source preview lets you inspect both RAG document collections without a model connection. Agent evaluators, hosted API/worker service, embeddings, human calibration and production ingestion remain planned.
+**Status: core engine, RAG slice and local dashboard implemented (0.5.0).** This release includes the local CLI, approved baselines, bounded execution and retries, provider-backed model/judge interfaces, versioned PostgreSQL persistence, and a support-application regression demo. The RAG slice adds Markdown/BM25 retrieval, provider-generated cited answers, document retrieval metrics and a context-only faithfulness judge. A local dashboard displays saved experiments and launches explicitly registered evaluations with background job status. Its source preview lets you inspect both RAG document collections without a model connection. Release 0.5 adds an attributed public SQuAD retrieval benchmark, setup generation, job history/cancellation, browser model settings and local reference approval/reuse. Agent evaluators, hosted API/worker service, embeddings, human calibration and production ingestion remain planned.
 
 ## Quick start
 
@@ -33,6 +33,22 @@ Candidate: "Refunds are available within 30 days."
 These are explicit offline fixture responses for 24 fictional support-policy cases. They demonstrate the engine; they are not model-generated answers or a working support assistant.
 
 Each invocation saves a new directory under `.evalforge/` containing `baseline.json`, `candidate.json`, `comparison.json`, `experiment.json`, `metrics.json`, and `report.txt`. Paths in configuration are relative to the config file. `--output-dir` overrides the artifact root.
+
+## Run a real dataset without an AI key
+
+The [SQuAD benchmark guide](examples/squad/README.md) provides a ready-to-run, attributed public
+subset: **200 human-written questions, 100 Wikipedia source paragraphs, 44 article topics**.
+It uses real BM25 retrieval, without generating answers or pretending to use AI.
+
+```bash
+evalforge dashboard --config examples/squad/retrieval.json --config examples/squad/unchanged.json --open
+```
+
+Choose `retrieval.json`, then **Run retrieval evaluation · no AI key**. The intentionally missing
+source documents reduce measured annotated-source recall from **98% to 88.5%**, blocking the
+change. The unchanged pair passes its no-regression check. These scores apply to this subset and
+retriever, not the full SQuAD task or AI answer quality. The guide covers provenance, licensing,
+reproduction, your own datasets, model preparation, stopping jobs and approving references.
 
 ## Run the support application demo
 
@@ -111,8 +127,13 @@ and output-token limits. These limits are not a currency spending cap.
 port. Repeat `--config PATH` to enable trusted configuration files at startup. With no
 `--config`, the dashboard remains a results viewer. Only registered configurations can run;
 the browser cannot submit arbitrary file paths. One job runs at a time per artifact root.
-Browser jobs save JSON artifacts and do not write an inherited SQL database. Baseline approvals,
-SQL history and a hosted multiuser service remain outside this UI.
+Browser jobs save JSON artifacts and do not write an inherited SQL database. Local reference
+approvals use an explicit workspace SQLite store under `_baselines/baselines.db`; choosing an
+approved reference reuses its exact run ID and saves that comparison there too. Approval rejects
+execution/unknown errors and failed must-pass cases. Dataset version/hash and evaluator settings
+must match. Audit names are labels, not authentication. Remote SQL history and a hosted multiuser
+service remain outside this UI. **Job history and saved references** retains statuses and approvals;
+**Stop evaluation** stops the owned worker. It cannot undo requests already sent to a provider.
 It binds only to this computer and requires no frontend build tools. Keep the terminal running;
 Ctrl+C stops it. Incomplete/invalid artifacts are counted and skipped; individual experiments
 larger than 16 MiB are rejected. Experiment listing currently scans the artifact directory.
@@ -125,6 +146,17 @@ minutes) plus 15 seconds. Normal shutdown stops the owned process. Restarted unf
 are marked **Interrupted** and never retried automatically. After an unexpected server crash,
 a child process may survive: check local processes and saved artifacts before rerunning.
 This is a local worker, not a durable distributed queue.
+
+## Easier setup
+
+`evalforge setup` creates a validated configuration from your JSONL dataset and two Markdown
+collections. By default it evaluates retrieval without AI. Add model/judge names and provider
+settings to prepare a bounded live RAG evaluation; setup never makes model calls. See the
+[SQuAD guide](examples/squad/README.md#use-your-own-data-or-prepare-ai-evaluation-later) for the
+complete command and label requirements. Existing RAG configurations also expose a browser
+model-settings form. It saves only model names, endpoint and credential-variable name to the
+selected registered file. Put the actual credential in the local environment and restart the
+server to use it. Saving settings is not a provider connection test.
 
 ## What works today
 

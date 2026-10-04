@@ -250,6 +250,25 @@ class SQLStore:
         validate_baseline(run)
         return run
 
+    def list_baselines(self) -> list[BaselineApproval]:
+        """Return the latest approval for each name, newest first."""
+        try:
+            with self.engine.connect() as connection:
+                payloads = (
+                    connection.execute(
+                        select(approvals.c.payload).order_by(approvals.c.sequence.desc())
+                    )
+                    .scalars()
+                    .all()
+                )
+            latest = {}
+            for payload in payloads:
+                approval = BaselineApproval.model_validate(payload)
+                latest.setdefault(approval.name, approval)
+            return list(latest.values())
+        except Exception:
+            raise StorageError("baseline listing failed") from None
+
     def baseline_history(self, name: str) -> list[BaselineApproval]:
         with self.engine.connect() as connection:
             payloads = (

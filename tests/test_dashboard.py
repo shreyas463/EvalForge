@@ -477,3 +477,181 @@ def test_http_retrieval_preview_checks_session_profile_and_question(tmp_path):
         server.shutdown()
         server.server_close()
         thread.join()
+
+
+def test_real_worker_cancellation_and_persisted_job_history(tmp_path, monkeypatch):
+    import time
+    from pathlib import Path
+
+    from evalforge.jobs import JobBusy, JobManager
+
+    module = tmp_path / "controlled_slow_target.py"
+    module.write_text("import time\ndef answer(case):\n    time.sleep(30)\n    return 'done'\n")
+    monkeypatch.syspath_prepend(str(tmp_path))
+    monkeypatch.setenv("PYTHONPATH", str(tmp_path))
+    original = Path(__file__).resolve().parents[1] / "examples/support/offline.json"
+    config = json.loads(original.read_text())
+    config["dataset"] = str(original.parent / "cases.jsonl")
+    for name in ("baseline", "candidate"):
+        config[name] = {"kind": "local", "name": name, "callable": "controlled_slow_target:answer"}
+    path = tmp_path / "slow.json"
+    write_json(path, config)
+    manager = JobManager(tmp_path / "runs", [path])
+    try:
+        job = manager.submit("0")
+        deadline = time.monotonic() + 5
+        while manager.process is None and time.monotonic() < deadline:
+            time.sleep(0.01)
+        assert manager.process is not None
+        process = manager.process
+        manager.cancel(job["id"])
+        manager.worker.join(10)
+        assert process.poll() is not None
+        saved = manager.get(job["id"])
+        assert saved["status"] == "CANCELLED"
+        assert saved["experiment_directory"] is None
+        assert manager.active is None
+        assert manager.history()["jobs"][0]["id"] == job["id"]
+        with pytest.raises(JobBusy):
+            manager.cancel(job["id"])
+    finally:
+        manager.close()
+    restarted = JobManager(tmp_path / "runs", [path])
+    try:
+        assert restarted.history()["jobs"][0]["status"] == "CANCELLED"
+    finally:
+        restarted.close()
+
+
+def test_browser_local_baseline_approval_reuses_exact_run(tmp_path):
+    from pathlib import Path
+
+    from evalforge.jobs import JobManager
+
+    config = Path(__file__).resolve().parents[1] / "examples/support/offline.json"
+    manager = JobManager(tmp_path, [config])
+    try:
+        assert manager.baselines() == []
+        job = manager.submit("0")
+        manager.worker.join(20)
+        experiment = ArtifactReader(tmp_path).load(manager.get(job["id"])["experiment_directory"])
+        approval = manager.approve(
+            experiment,
+            side="baseline",
+            name="reviewed-support",
+            approved_by="test reviewer",
+            note="checked policy",
+        )
+        assert manager.baselines()[0]["run_id"] == approval.run_id == experiment.baseline.id
+        with pytest.raises(ValueError, match="critical"):
+            manager.approve(experiment, side="candidate", name="bad", approved_by="reviewer")
+        next_job = manager.submit("0", baseline_name="reviewed-support")
+        manager.worker.join(20)
+        saved = manager.get(next_job["id"])
+        assert saved["baseline_run_id"] == experiment.baseline.id
+        assert saved["status"] == "COMPLETED"
+        result = ArtifactReader(tmp_path).load(saved["experiment_directory"])
+        assert result.baseline.id == experiment.baseline.id
+        assert result.candidate.id != experiment.candidate.id
+    finally:
+        manager.close()
+
+
+def test_model_setup_updates_only_registered_configuration_without_calls(tmp_path, monkeypatch):
+    from pathlib import Path
+
+    from evalforge.jobs import JobManager
+
+    original = Path(__file__).resolve().parents[1] / "examples/rag/live.json"
+    config = json.loads(original.read_text())
+    config["dataset"] = str(original.parent / config["dataset"])
+    for name in ("baseline", "candidate"):
+        config[name]["documents"] = str(original.parent / config[name]["documents"])
+    path = tmp_path / "live.json"
+    write_json(path, config)
+    manager = JobManager(tmp_path / "runs", [path])
+    monkeypatch.delenv("TEST_PROVIDER_KEY", raising=False)
+    monkeypatch.setattr(
+        "evalforge.providers.ChatProvider.complete",
+        lambda *a, **k: pytest.fail("setup called a model"),
+    )
+    settings = {
+        "model": "real-model-id",
+        "judge_model": "real-judge-id",
+        "base_url": "http://localhost:9000/v1",
+        "api_key_env": "TEST_PROVIDER_KEY",
+    }
+    try:
+        profile = manager.configure("0", settings)
+        assert not profile["ready"]  # Credentials are still required for AI evaluation.
+        saved = json.loads(path.read_text())
+        assert saved["baseline"]["provider"]["model"] == "real-model-id"
+        assert saved["judge_provider"]["model"] == "real-judge-id"
+        assert saved["dataset"] == config["dataset"]
+        assert saved["baseline"]["documents"] == config["baseline"]["documents"]
+        with pytest.raises(ValueError, match="variable name"):
+            manager.configure("0", {**settings, "api_key_env": "sk-not-a-variable"})
+        with pytest.raises(KeyError):
+            manager.configure("arbitrary-file.json", settings)
+        assert manager.active is None
+    finally:
+        manager.close()
+
+
+def test_http_local_approvals_configuration_and_cancel_are_guarded(tmp_path):
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    config = root / "examples/support/offline.json"
+    server = make_server(tmp_path, port=0, configs=[config])
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    base = f"http://127.0.0.1:{server.server_port}"
+    try:
+        with httpx.Client(base_url=base, trust_env=False) as client:
+            setup = client.get("/api/setup").json()
+            headers = {"X-EvalForge-Token": setup["session_token"]}
+            assert client.get("/api/jobs").json()["jobs"] == []
+            assert client.get("/api/baselines").json()["baselines"] == []
+            for route in ("/api/cancel", "/api/configure", "/api/approve"):
+                assert client.post(route, json={}).status_code == 403
+                assert client.post(route, json={}, headers=headers).status_code == 422
+                assert (
+                    client.post(
+                        route, json={}, headers={**headers, "Origin": "https://attacker.example"}
+                    ).status_code
+                    == 403
+                )
+            assert (
+                client.post(
+                    "/api/cancel", json={"job_id": str(uuid4())}, headers=headers
+                ).status_code
+                == 404
+            )
+            experiment = sample_experiment()
+            directory = str(uuid4())
+            write_json(tmp_path / directory / "experiment.json", experiment.model_dump(mode="json"))
+            payload = {
+                "experiment_id": directory,
+                "side": "baseline",
+                "name": "reference",
+                "approved_by": "reviewer",
+                "note": "reviewed test",
+            }
+            assert client.post("/api/approve", json=payload, headers=headers).status_code == 201
+            approved = client.get("/api/baselines").json()["baselines"][0]
+            assert approved["run_id"] == experiment.baseline.id
+            assert approved["history"][0]["approved_by"] == "reviewer"
+            # Approval cannot be used against an unrelated dataset or evaluator configuration.
+            assert (
+                client.post(
+                    "/api/jobs",
+                    json={"profile_id": "0", "baseline_name": "reference"},
+                    headers=headers,
+                ).status_code
+                == 422
+            )
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join()
