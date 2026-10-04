@@ -1,0 +1,3 @@
+# Doctor Who
+
+In 1993, for the franchise's 30th anniversary, another charity special, titled Dimensions in Time was produced for Children in Need, featuring all of the surviving actors who played the Doctor and a number of previous companions. It also featured a crossover with the soap opera EastEnders, the action taking place in the latter's Albert Square location and around Greenwich. The special was one of several special 3D programmes the BBC produced at the time, using a 3D system that made use of the Pulfrich effect requiring glasses with one darkened lens; the picture would look normal to those viewers who watched without the glasses.

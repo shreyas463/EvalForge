@@ -20,7 +20,7 @@ from evalforge.models import (
     RegressionRule,
 )
 from evalforge.providers import ChatProvider
-from evalforge.rag import SYSTEM_PROMPT, BM25Retriever, RAGTarget
+from evalforge.rag import SYSTEM_PROMPT, BM25Retriever, RAGTarget, RetrievalTarget
 from evalforge.runner import RESERVED_METRICS
 from evalforge.targets import LLMTarget, LocalTarget, MockTarget
 
@@ -84,6 +84,14 @@ class ChatConfig(Model):
         return self
 
 
+class RetrievalConfig(Model):
+    kind: Literal["retrieval"]
+    name: Name
+    documents: Name
+    top_k: Annotated[int, Field(ge=1, le=100)] = 5
+    chunk_words: Annotated[int, Field(ge=1, le=2000)] = 180
+
+
 class RAGConfig(Model):
     kind: Literal["rag"]
     name: Name
@@ -94,7 +102,7 @@ class RAGConfig(Model):
 
 
 TargetConfig = Annotated[
-    MockConfig | LocalConfig | ChatConfig | RAGConfig, Field(discriminator="kind")
+    MockConfig | LocalConfig | ChatConfig | RAGConfig | RetrievalConfig, Field(discriminator="kind")
 ]
 
 
@@ -135,12 +143,14 @@ def build_target(config: TargetConfig, *, base_dir: Path | None = None):
     snapshot = config.model_dump(mode="json")
     if isinstance(config, MockConfig):
         return MockTarget(config.responses), snapshot
-    if isinstance(config, RAGConfig):
+    if isinstance(config, (RAGConfig, RetrievalConfig)):
         retriever = BM25Retriever(
             (base_dir or Path.cwd()) / config.documents, chunk_words=config.chunk_words
         )
         snapshot["corpus_hash"] = retriever.corpus_hash
         snapshot["retriever"] = "bm25-v1"
+        if isinstance(config, RetrievalConfig):
+            return RetrievalTarget(retriever, top_k=config.top_k), snapshot
         snapshot["system_prompt"] = SYSTEM_PROMPT
         return RAGTarget(
             retriever, ChatProvider(**config.provider.model_dump()), top_k=config.top_k

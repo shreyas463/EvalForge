@@ -5,7 +5,9 @@ unfinished jobs are reported as interrupted, never silently restarted or rerun.
 """
 
 import hashlib
+import json
 import os
+import re
 import sqlite3
 import subprocess
 import sys
@@ -14,14 +16,26 @@ from datetime import UTC, datetime
 from pathlib import Path
 from uuid import UUID, uuid4
 
-from evalforge.config import ChatConfig, RAGConfig, build_evaluators, build_target, load_config
-from evalforge.datasets import load_jsonl, parse_json
-from evalforge.models import Experiment
+from evalforge.config import (
+    ChatConfig,
+    ExperimentConfig,
+    RAGConfig,
+    RetrievalConfig,
+    build_evaluators,
+    build_target,
+    load_config,
+)
+from evalforge.datasets import dataset_hash, load_jsonl, parse_json
+from evalforge.models import BaselineApproval, Experiment
 from evalforge.rag import BM25Retriever
-from evalforge.storage import write_json
+from evalforge.storage import SQLStore, StorageError, write_json
 
 
 class JobBusy(RuntimeError):
+    pass
+
+
+class WorkerTimeout(RuntimeError):
     pass
 
 
@@ -41,6 +55,8 @@ class JobManager:
         self.process = None
         self.worker = None
         self.closed = False
+        self.cancelled = set()
+        self.current_job = None
         self.ownership = None
         if configs:
             self.directory.mkdir(parents=True, exist_ok=True)
@@ -59,12 +75,12 @@ class JobManager:
                 if path.is_symlink() or path.parent.is_symlink():
                     continue
                 try:
-                    job = parse_json(path.read_text(encoding="utf-8"))
+                    job = self.get(path.parent.name)
                 except (OSError, ValueError):
                     continue
                 if not isinstance(job, dict):
                     continue
-                if job.get("status") in {"QUEUED", "RUNNING"}:
+                if job.get("status") in {"QUEUED", "RUNNING", "CANCELLING"}:
                     job.update(
                         status="INTERRUPTED",
                         finished_at=now(),
@@ -93,7 +109,7 @@ class JobManager:
         try:
             config = config or load_config(path)
             dataset = load_jsonl(path.parent / config.dataset)
-            build_evaluators(config)
+            evaluators = build_evaluators(config)
             profile["process_timeout_seconds"] = min(config.execution.max_seconds or 300, 3600) + 15
             providers = [
                 target.provider
@@ -105,6 +121,14 @@ class JobManager:
             profile.update(
                 name=f"{config.dataset_name or dataset.name} · {path.name}",
                 questions=len(dataset.cases),
+                dataset=config.dataset_name or dataset.name,
+                dataset_version=config.dataset_version or dataset.version,
+                dataset_hash=dataset_hash(dataset.cases),
+                evaluators=[e.spec.model_dump(mode="json") for e in evaluators],
+                model_settings=config.baseline.provider.model_dump(mode="json")
+                if isinstance(config.baseline, RAGConfig)
+                else None,
+                judge_model=config.judge_provider.model if config.judge_provider else None,
                 uses_model=bool(providers),
                 baseline=config.baseline.name,
                 candidate=config.candidate.name,
@@ -113,7 +137,8 @@ class JobManager:
             for target in (config.baseline, config.candidate):
                 build_target(target, base_dir=path.parent)
             profile["can_preview_retrieval"] = all(
-                isinstance(target, RAGConfig) for target in (config.baseline, config.candidate)
+                isinstance(target, (RAGConfig, RetrievalConfig))
+                for target in (config.baseline, config.candidate)
             )
             for provider in providers:
                 if provider.model.startswith("YOUR_"):
@@ -154,7 +179,7 @@ class JobManager:
         result = {"question": question.strip(), "mode": "retrieval_only"}
         for name in ("baseline", "candidate"):
             target = getattr(config, name)
-            if not isinstance(target, RAGConfig):
+            if not isinstance(target, (RAGConfig, RetrievalConfig)):
                 raise ValueError("source previews require two RAG targets")
             retriever = BM25Retriever(
                 path.parent / target.documents, chunk_words=target.chunk_words
@@ -176,9 +201,146 @@ class JobManager:
         path = self.directory / identifier / "job.json"
         if path.is_symlink() or path.parent.is_symlink():
             raise FileNotFoundError("job not found")
-        return parse_json(path.read_text(encoding="utf-8"))
+        with path.open("rb") as source:
+            data = source.read(65537)
+        if len(data) > 65536:
+            raise ValueError("job state exceeds size limit")
+        return parse_json(data.decode("utf-8"))
 
-    def submit(self, profile_id, *, confirm_model_calls=False):
+    def history(self):
+        jobs, invalid = [], 0
+        if self.directory.exists():
+            for directory in self.directory.iterdir():
+                if not directory.is_dir():
+                    continue
+                try:
+                    job = self.get(directory.name)
+                    if (
+                        not isinstance(job.get("created_at", ""), str)
+                        or job.get("id") != directory.name
+                        or job.get("status")
+                        not in {
+                            "QUEUED",
+                            "RUNNING",
+                            "CANCELLING",
+                            "COMPLETED",
+                            "ERROR",
+                            "INTERRUPTED",
+                            "CANCELLED",
+                        }
+                    ):
+                        raise ValueError("invalid job state")
+                    jobs.append(job)
+                except (OSError, ValueError, AttributeError):
+                    invalid += 1
+        jobs.sort(key=lambda job: (job.get("created_at", ""), job["id"]), reverse=True)
+        return {"jobs": jobs, "invalid_jobs": invalid}
+
+    def cancel(self, identifier):
+        self.get(identifier)  # Canonical UUID and file/path validation.
+        with self.lock:
+            if self.active != identifier:
+                raise JobBusy("This job is no longer running. Refresh job history.")
+            if self.process is not None and self.process.poll() is not None:
+                raise JobBusy("The process has finished; wait for its saved result.")
+            self.cancelled.add(identifier)
+            self.current_job.update(status="CANCELLING", message="Stopping the evaluation process.")
+            write_json(self.directory / identifier / "job.json", self.current_job)
+            process = self.process
+        if process and process.poll() is None:
+            process.terminate()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait()
+        return self.get(identifier)
+
+    def _baseline_store(self):
+        folder = self.root / "_baselines"
+        path = folder / "baselines.db"
+        if folder.is_symlink() or path.is_symlink():
+            raise StorageError("baseline store must not be a symlink")
+        folder.mkdir(parents=True, exist_ok=True)
+        return SQLStore(f"sqlite:///{path}")
+
+    def baselines(self):
+        if not (self.root / "_baselines" / "baselines.db").exists():
+            return []
+        store = self._baseline_store()
+        try:
+            items = []
+            for approval in store.list_baselines():
+                run = store.load_run(approval.run_id)
+                items.append(
+                    {
+                        **approval.model_dump(mode="json"),
+                        "dataset": run.dataset_name,
+                        "target": run.target_name,
+                        "dataset_hash": run.dataset_hash,
+                        "dataset_version": run.dataset_version,
+                        "evaluators": [e.model_dump(mode="json") for e in run.evaluators],
+                        "history": [
+                            a.model_dump(mode="json") for a in store.baseline_history(approval.name)
+                        ],
+                    }
+                )
+            return items
+        finally:
+            store.close()
+
+    def approve(self, experiment, *, side, name, approved_by, note=""):
+        if not self.configs:
+            raise ValueError("enable configurations before approving local baselines")
+        if side not in {"baseline", "candidate"}:
+            raise ValueError("choose original or changed version")
+        if len(name) > 100 or len(approved_by) > 100 or len(note) > 2000:
+            raise ValueError("approval fields are too long")
+        # Validate names before opening a database.
+        BaselineApproval(
+            name=name, run_id=getattr(experiment, side).id, approved_by=approved_by, note=note
+        )
+        store = self._baseline_store()
+        try:
+            return store.approve_baseline(
+                getattr(experiment, side), name=name, approved_by=approved_by, note=note
+            )
+        finally:
+            store.close()
+
+    def configure(self, profile_id, settings):
+        if profile_id not in self.configs:
+            raise KeyError("unknown registered configuration")
+        if set(settings) != {"model", "judge_model", "base_url", "api_key_env"} or any(
+            not isinstance(value, str) or len(value) > 500 for value in settings.values()
+        ):
+            raise ValueError("provide model names, endpoint and credential-variable name only")
+        if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]{0,99}", settings["api_key_env"]):
+            raise ValueError("use an environment variable name, never a credential value")
+        path = self.configs[profile_id]
+        config = load_config(path)
+        if not all(isinstance(target, RAGConfig) for target in (config.baseline, config.candidate)):
+            raise ValueError("model settings require an existing RAG configuration")
+        snapshot = config.model_dump(mode="json")
+        for provider in [snapshot["baseline"]["provider"], snapshot["candidate"]["provider"]] + (
+            [snapshot["judge_provider"]] if snapshot["judge_provider"] else []
+        ):
+            provider.update(
+                model=settings["model"],
+                base_url=settings["base_url"],
+                api_key_env=settings["api_key_env"],
+            )
+        if snapshot["judge_provider"]:
+            snapshot["judge_provider"]["model"] = settings["judge_model"] or settings["model"]
+        updated = ExperimentConfig.model_validate(snapshot, strict=True)
+        build_evaluators(updated)
+        with self.lock:
+            if self.active:
+                raise JobBusy("Wait for the current job before changing model settings.")
+            write_json(path, updated.model_dump(mode="json"))
+        return self.profile(profile_id)
+
+    def submit(self, profile_id, *, confirm_model_calls=False, baseline_name=None):
         if profile_id not in self.configs:
             raise KeyError("unknown registered configuration")
         config = load_config(self.configs[profile_id])
@@ -187,6 +349,37 @@ class JobManager:
             raise ValueError("; ".join(profile["issues"]))
         if profile["uses_model"] and not confirm_model_calls:
             raise ValueError("confirm model calls before starting this evaluation")
+        baseline = None
+        if baseline_name is not None:
+            store = self._baseline_store()
+            try:
+                baseline = store.resolve_baseline(name=baseline_name)
+                dataset = load_jsonl(
+                    self.configs[profile_id].parent / config.dataset,
+                    name=config.dataset_name,
+                    version=config.dataset_version,
+                )
+
+                if (baseline.dataset_name, baseline.dataset_version, baseline.dataset_hash) != (
+                    dataset.name,
+                    dataset.version,
+                    dataset_hash(dataset.cases),
+                ):
+                    raise ValueError("approved baseline uses a different dataset version")
+                expected = sorted(
+                    json.dumps(e.spec.model_dump(mode="json"), sort_keys=True)
+                    for e in build_evaluators(config)
+                )
+                if (
+                    sorted(
+                        json.dumps(e.model_dump(mode="json"), sort_keys=True)
+                        for e in baseline.evaluators
+                    )
+                    != expected
+                ):
+                    raise ValueError("approved baseline uses different evaluator settings")
+            finally:
+                store.close()
         with self.lock:
             if self.closed or self.active:
                 raise JobBusy("An evaluation is already running. Wait for it to finish.")
@@ -200,6 +393,8 @@ class JobManager:
                 "exit_code": None,
                 "experiment_directory": None,
                 "message": "Waiting to start.",
+                "baseline_name": baseline_name,
+                "baseline_run_id": baseline.id if baseline else None,
                 "config_sha256": hashlib.sha256(self.configs[profile_id].read_bytes()).hexdigest(),
             }
             # Freeze validated configuration and resolve file references against its source.
@@ -215,6 +410,7 @@ class JobManager:
             write_json(frozen, snapshot)
             write_json(self.directory / identifier / "job.json", job)
             self.active = identifier
+            self.current_job = job
             self.worker = threading.Thread(
                 target=self._run,
                 args=(job, frozen, profile["process_timeout_seconds"]),
@@ -237,19 +433,29 @@ class JobManager:
             environment.pop("EVALFORGE_DATABASE_URL", None)
             with (directory / "execution.log").open("wb") as log:
                 with self.lock:
-                    if self.closed:
-                        raise RuntimeError("dashboard stopped")
+                    if self.closed or job["id"] in self.cancelled:
+                        raise RuntimeError("dashboard stopped or job cancelled")
+                    command = [
+                        sys.executable,
+                        "-m",
+                        "evalforge",
+                        "run",
+                        "--config",
+                        str(config),
+                        "--output-dir",
+                        str(output),
+                    ]
+                    if job["baseline_name"]:
+                        command.extend(
+                            [
+                                "--baseline-id",
+                                job["baseline_run_id"],
+                                "--database-url",
+                                f"sqlite:///{self.root / '_baselines' / 'baselines.db'}",
+                            ]
+                        )
                     process = subprocess.Popen(
-                        [
-                            sys.executable,
-                            "-m",
-                            "evalforge",
-                            "run",
-                            "--config",
-                            str(config),
-                            "--output-dir",
-                            str(output),
-                        ],
+                        command,
                         stdout=log,
                         stderr=log,
                         env=environment,
@@ -260,13 +466,13 @@ class JobManager:
                 except subprocess.TimeoutExpired:
                     process.kill()
                     process.wait()
-                    raise RuntimeError("worker process deadline exceeded") from None
+                    raise WorkerTimeout("worker process deadline exceeded") from None
             artifacts = list(output.glob("*/experiment.json")) if output.exists() else []
             if len(artifacts) == 1:
                 experiment = Experiment.model_validate(
                     parse_json(artifacts[0].read_text(encoding="utf-8"))
                 )
-                if code in {0, 1, 3}:
+                if code in {0, 1, 3} and job["id"] not in self.cancelled:
                     destination = self.root / artifacts[0].parent.name
                     artifacts[0].parent.rename(destination)
                     job["experiment_directory"] = destination.name
@@ -274,11 +480,27 @@ class JobManager:
             job.update(
                 status="COMPLETED" if code in {0, 1} and job["experiment_directory"] else "ERROR",
                 exit_code=code,
+                failure_kind="configuration"
+                if code == 2
+                else "execution"
+                if code not in {0, 1}
+                else None,
                 message="Evaluation finished. Open the saved comparison."
                 if code in {0, 1} and job["experiment_directory"]
+                else "Configuration or dataset is invalid. Refresh setup and check files."
+                if code == 2
                 else (
                     "Evaluation could not finish reliably. Check the local "
                     "execution.log and configuration. Saved error evidence may be available."
+                ),
+            )
+        except WorkerTimeout:
+            job.update(
+                status="ERROR",
+                failure_kind="timeout",
+                message=(
+                    "Time limit reached. Reduce the test size or increase the "
+                    "configured budget before rerunning."
                 ),
             )
         except Exception:
@@ -288,15 +510,24 @@ class JobManager:
             )
         finally:
             with self.lock:
-                if self.closed:
+                if job["id"] in self.cancelled:
+                    job.update(
+                        status="CANCELLED",
+                        message="Evaluation cancelled. No quality decision was made.",
+                    )
+                    self.cancelled.discard(job["id"])
+                elif self.closed:
                     job.update(
                         status="INTERRUPTED",
                         message="Dashboard stopped. This job was not automatically retried.",
                     )
                 job["finished_at"] = now()
-                write_json(directory / "job.json", job)
-                self.active = None
-                self.process = None
+                try:
+                    write_json(directory / "job.json", job)
+                finally:
+                    self.active = None
+                    self.process = None
+                    self.current_job = None
 
     def close(self):
         with self.lock:

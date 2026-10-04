@@ -1,0 +1,3 @@
+# Kenya
+
+In December 2014, President Uhuru Kenyatta signed a Security Laws Amendment Bill, which supporters of the law suggested was necessary to guard against armed groups. Opposition politicians, human rights groups, and nine Western countries criticised the security bill, arguing that it infringed on democratic freedoms. The governments of the United States, Britain, Germany and France also collectively issued a press statement cautioning about the law's potential impact. Through the Jubillee Coalition, the Bill was later passed on 19 December in the National Assembly under acrimonious circumstances.

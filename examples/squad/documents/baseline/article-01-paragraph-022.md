@@ -1,0 +1,3 @@
+# Warsaw
+
+The first fortified settlements on the site of today's Warsaw were located in Bródno (9th/10th century) and Jazdów (12th/13th century). After Jazdów was raided by nearby clans and dukes, a new similar settlement was established on the site of a small fishing village called Warszowa. The Prince of Płock, Bolesław II of Masovia, established this settlement, the modern-day Warsaw, in about 1300. In the beginning of the 14th century it became one of the seats of the Dukes of Masovia, becoming the official capital of Masovian Duchy in 1413. 14th-century Warsaw's economy rested on mostly crafts and trade. Upon the extinction of the local ducal line, the duchy was reincorporated into the Polish Crown in 1526.

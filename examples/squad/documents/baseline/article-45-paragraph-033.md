@@ -1,0 +1,3 @@
+# United Methodist Church
+
+Decisions in-between the four-year meetings are made by the Mission Council (usually consisting of church bishops). One of the most high profile decisions in recent years by one of the councils was a decision by the Mission Council of the South Central Jurisdiction which in March 2007 approved a 99-year lease of 36 acres (150,000 m2) at Southern Methodist University for the George W. Bush Presidential Library. The decision generated controversy in light of Bush's support of the Iraq War which the church bishops have criticized. A debate over whether the decision should or could be submitted for approval by the Southern Jurisdictional Conference at its July 2008 meeting in Dallas, Texas, remains unresolved.

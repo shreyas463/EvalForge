@@ -1,0 +1,3 @@
+# Chloroplast
+
+Plants have two main immune responses—the hypersensitive response, in which infected cells seal themselves off and undergo programmed cell death, and systemic acquired resistance, where infected cells release signals warning the rest of the plant of a pathogen's presence. Chloroplasts stimulate both responses by purposely damaging their photosynthetic system, producing reactive oxygen species. High levels of reactive oxygen species will cause the hypersensitive response. The reactive oxygen species also directly kill any pathogens within the cell. Lower levels of reactive oxygen species initiate systemic acquired resistance, triggering defense-molecule production in the rest of the plant.

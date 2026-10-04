@@ -1,0 +1,3 @@
+# Victoria (Australia)
+
+Victoria is the centre of dairy farming in Australia. It is home to 60% of Australia's 3 million dairy cattle and produces nearly two-thirds of the nation's milk, almost 6.4 billion litres. The state also has 2.4 million beef cattle, with more than 2.2 million cattle and calves slaughtered each year. In 2003–04, Victorian commercial fishing crews and aquaculture industry produced 11,634 tonnes of seafood valued at nearly A$109 million. Blacklipped abalone is the mainstay of the catch, bringing in A$46 million, followed by southern rock lobster worth A$13.7 million. Most abalone and rock lobster is exported to Asia.

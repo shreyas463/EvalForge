@@ -57,11 +57,37 @@
         <div id="preview-results"></div>
         <p class="next-step"><strong>2. Evaluate the AI answers</strong> Complete the model setup below, then use Run evaluation. That calls the model and checks its answers against your evaluation rules.</p>
       </section>
+      <details id="model-setup" hidden>
+        <summary>Set up the AI connection</summary>
+        <p>The provider is the service that runs your AI model. Enter its model names and address here. Save these settings now; add the secret key locally when you are ready. This form never asks for a key or calls a model.</p>
+        <form id="model-settings" class="settings-form">
+          <label>Answer model name<input id="model-name" maxlength="500" required placeholder="Model name from your provider"></label>
+          <label>Judge model name<input id="judge-name" maxlength="500" placeholder="Leave blank to use the answer model"></label>
+          <label>Provider address<input id="provider-url" maxlength="500" type="url" required></label>
+          <label>Credential variable name<input id="credential-variable" maxlength="100" pattern="[A-Za-z_][A-Za-z0-9_]*" required></label>
+          <p>Use a variable name such as OPENAI_API_KEY, not the key itself. Saving changes the selected registered configuration file. It does not verify that the provider supports these models.</p>
+          <button type="submit" id="save-model">Save model settings</button>
+        </form>
+        <p id="model-status" role="status" aria-live="polite"></p>
+      </details>
       <ul id="setup-issues"></ul>
+      <label for="baseline-selection">Reference version</label>
+      <select id="baseline-selection"><option value="">Run the configured original version</option></select>
+      <p class="muted">After reviewing a saved result, you can approve a reference version below and reuse it here. Only matching datasets and checks are offered.</p>
       <label id="paid-consent" hidden><input type="checkbox" id="confirm-model"> I understand this configuration calls a model provider and may incur costs.</label>
       <button id="start-run" disabled>Run evaluation</button>
       <div id="job-status" role="status" aria-live="polite"></div>
+      <button id="cancel-run" hidden>Stop evaluation</button>
     </section>
+    <details id="jobs-panel" class="help-panel">
+      <summary>Job history and saved references</summary>
+      <p>Finished means the process completed; Pass or Blocked is the quality decision. Stopped or interrupted jobs do not provide a completed quality decision.</p>
+      <button id="refresh-jobs">Refresh job history</button>
+      <div id="job-history" aria-live="polite"></div>
+      <button id="more-jobs" hidden>Show more jobs</button>
+      <h3>Approved reference versions</h3>
+      <div id="baseline-history"></div>
+    </details>
     <p id="notice" role="status" aria-live="polite"></p>
     <div class="workspace">
       <aside><h2>Recent experiments</h2><div id="history"></div></aside>

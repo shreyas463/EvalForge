@@ -1,0 +1,3 @@
+# Kenya
+
+In the motor rallying arena, Kenya is home to the world famous Safari Rally, commonly acknowledged as one of the toughest rallies in the world. It was a part of the World Rally Championship for many years until its exclusion after the 2002 event owing to financial difficulties. Some of the best rally drivers in the world have taken part in and won the rally, such as Björn Waldegård, Hannu Mikkola, Tommi Mäkinen, Shekhar Mehta, Carlos Sainz and Colin McRae. Although the rally still runs annually as part of the Africa rally championship, the organisers are hoping to be allowed to rejoin the World Rally championship in the next couple of years.

@@ -1,0 +1,36 @@
+{
+  "dataset": "cases.jsonl",
+  "dataset_name": "squad-dev-retrieval-subset",
+  "baseline": {
+    "kind": "retrieval",
+    "name": "complete-corpus",
+    "documents": "documents/baseline",
+    "top_k": 5
+  },
+  "candidate": {
+    "kind": "retrieval",
+    "name": "unchanged-corpus",
+    "documents": "documents/baseline",
+    "top_k": 5
+  },
+  "evaluators": [
+    {
+      "metric": "source_recall",
+      "kind": "retrieval_recall",
+      "options": {
+        "k": 5
+      }
+    }
+  ],
+  "gates": [
+    {
+      "metric": "source_recall",
+      "max_regression": 0
+    }
+  ],
+  "execution": {
+    "concurrency": 2,
+    "max_seconds": 120
+  },
+  "output_dir": "../../.evalforge"
+}

@@ -133,6 +133,23 @@ def main(argv=None) -> int:
     dashboard.add_argument("--artifact-root", default=".evalforge")
     dashboard.add_argument("--port", type=int, default=8765)
     dashboard.add_argument("--open", action="store_true", dest="open_browser")
+    setup = sub.add_parser("setup", help="create a validated retrieval or RAG configuration")
+    setup.add_argument("--dataset", required=True)
+    setup.add_argument("--baseline-documents", required=True)
+    setup.add_argument("--candidate-documents", required=True)
+    setup.add_argument("--output", required=True)
+    setup.add_argument("--top-k", type=int, default=5)
+    setup.add_argument("--model")
+    setup.add_argument("--judge-model")
+    setup.add_argument("--base-url", default="https://api.openai.com/v1")
+    setup.add_argument("--api-key-env", default="OPENAI_API_KEY")
+    benchmark = sub.add_parser(
+        "import-squad", help="convert the pinned official SQuAD development file"
+    )
+    benchmark.add_argument("--source", required=True)
+    benchmark.add_argument("--destination", required=True)
+    benchmark.add_argument("--paragraphs", type=int, default=100)
+    benchmark.add_argument("--questions-per-paragraph", type=int, default=2)
     validate = sub.add_parser("validate", help="validate a JSONL dataset")
     validate.add_argument("dataset")
     for command in ("run", "compare"):
@@ -183,6 +200,36 @@ def main(argv=None) -> int:
                 open_browser=args.open_browser,
                 configs=args.config,
             )
+        if args.command == "setup":
+            from evalforge.setup import create_config
+
+            path = create_config(
+                args.dataset,
+                args.baseline_documents,
+                args.candidate_documents,
+                args.output,
+                model=args.model,
+                judge_model=args.judge_model,
+                base_url=args.base_url,
+                api_key_env=args.api_key_env,
+                top_k=args.top_k,
+            )
+            print(f"Ready: {path}. No model calls made. Enable it with dashboard --config PATH.")
+            return 0
+        if args.command == "import-squad":
+            from evalforge.benchmarks import import_squad
+
+            print(
+                json.dumps(
+                    import_squad(
+                        args.source,
+                        args.destination,
+                        paragraphs=args.paragraphs,
+                        questions_per_paragraph=args.questions_per_paragraph,
+                    )
+                )
+            )
+            return 0
         if args.command == "validate":
             dataset = load_jsonl(args.dataset)
             print(f"Valid: {dataset.name}, {len(dataset.cases)} cases, version={dataset.version}")

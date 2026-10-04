@@ -1,0 +1,3 @@
+# Amazon rainforest
+
+One computer model of future climate change caused by greenhouse gas emissions shows that the Amazon rainforest could become unsustainable under conditions of severely reduced rainfall and increased temperatures, leading to an almost complete loss of rainforest cover in the basin by 2100. However, simulations of Amazon basin climate change across many different models are not consistent in their estimation of any rainfall response, ranging from weak increases to strong decreases. The result indicates that the rainforest could be threatened though the 21st century by climate change in addition to deforestation.

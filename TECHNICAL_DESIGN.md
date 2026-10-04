@@ -6,7 +6,7 @@
 ---
 
 
-# Implementation Ledger — Release 0.4.0
+# Implementation Ledger — Release 0.5.0
 
 The requested V0/V1 vertical slice and the baseline/reliability/application-demo milestone are implemented as a Python library/CLI. The following 63 sections preserve the long-term product design; statements about services, advanced evaluators, or UI below describe **planned** functionality unless listed as implemented here.
 
@@ -65,7 +65,7 @@ The client uses text DOM rendering for untrusted inputs/outputs, never HTML inte
 Local Host/Origin validation, same-origin assets and CSP keep its scope local.
 UUID-only experiment routes, symlink/path guards and a 16-MiB per-artifact read bound prevent
 arbitrary file browsing. Invalid folders are counted/skipped. Listing scans all snapshots;
-SQL querying, pagination, multiuser authentication and approvals in the UI are deferred.
+Remote SQL querying, server-side pagination and multiuser authentication remain deferred; local approvals are implemented in 0.5.0 below.
 Tests cover real loopback HTTP routes, invalid artifacts, path/origin guards and CLI dispatch.
 
 ## Browser execution and local jobs (0.4.0)
@@ -88,12 +88,13 @@ artifact directories and the UI opens the comparison.
 `_jobs/UUID/` stores atomic `job.json` state, a frozen `config.json` with absolute file references,
 and `execution.log`. The source-config digest is captured at submission; file inputs and local
 modules are still read at execution, with their actual versions recorded in experiment evidence.
-Browser workers remove inherited `EVALFORGE_DATABASE_URL` and write artifacts only. Process
+Browser workers remove inherited `EVALFORGE_DATABASE_URL`; ordinary jobs write artifacts only.
+Explicit workspace persistence for approved-reference jobs is described in the 0.5.0 extension below. Process
 execution is bounded to min(configured max_seconds or 300, 3600) + 15 seconds. Normal server
 shutdown terminates the owned process. Startup marks unfinished jobs interrupted without
 retrying. An unexpected parent crash may leave a child process alive, so operators must check
-processes and artifacts before retrying. There is no durable queue, cancellation endpoint,
-per-question progress stream or job-history UI. These local jobs do not implement the planned
+processes and artifacts before retrying. There is no durable distributed queue or
+per-question progress stream. The 0.5.0 extension below adds cancellation and job-history UI. These local jobs do not implement the planned
 FastAPI/distributed worker architecture.
 
 Tests exercise real CLI jobs and loopback submission, origin/token guards, busy rejection,
@@ -117,6 +118,53 @@ not confidence or comparable cross-corpus quality scores. Stale responses are di
 selected configuration changes or setup refreshes. This is an inspection tool, not an offline AI
 answer generator or a quality-gate result. Tests use real Markdown corpora, assert providers and
 evaluation labels are untouched, and cover edited/missing documents and real HTTP access guards.
+
+## Offline workflow and public benchmark (0.5.0)
+
+The checked-in `examples/squad` benchmark is derived from a pinned official SQuAD 1.1 dev file,
+checksum `95aa6a52d5d6a735563366753ca50492a658031da74f301ac5238b03966972c9`. A converter verifies
+that checksum and answer spans, samples 100 paragraphs by stable paragraph-ID SHA-256 order,
+and selects two questions per paragraph by upstream question ID. The result contains 200 questions
+from 44 article topics; candidate documents intentionally omit ten files. Source/derived-file
+hashes, article attribution links, question IDs, adaptation notes and CC BY-SA 4.0 licensing are
+preserved. This is a retrieval regression sample, not the official SQuAD leaderboard protocol.
+
+A `retrieval` target kind invokes BM25 on case.input only and records typed traces plus an explicit
+no-answer-generation message. It never reads labels or reference answers. Source recall compares
+the first five retrieved passages against SQuAD's annotated paragraph; no exhaustive-relevance
+precision or AI answer correctness is claimed. The measured subset result is 98% → 88.5% after
+source removal, with nineteen regressions and four existing baseline misses. The unchanged pair
+passes a relative no-regression gate. CI runs both examples without downloads or secrets.
+
+`evalforge setup` generates validated retrieval or optional model-backed configurations from
+user-provided cases and Markdown folders. Dataset questions must be strings and labels unique
+nonempty supporting document IDs. Generated model configurations include budgets; setup does not
+call providers. Output paths are explicit and existing files are not overwritten. Browser model
+settings edit only four non-secret fields in a startup-registered RAG file; credential values are
+never accepted. This is configuration validation, not live endpoint capability validation.
+
+`GET /api/jobs` exposes persisted bounded job records; malformed records are skipped. The UI
+shows recent jobs with more-on-demand, status, diagnostics and saved-result links. Session-protected
+`POST /api/cancel` terminates the active owned process, escalates to kill after five seconds if
+needed, and persists CANCELLED without claiming a completed quality verdict. It rejects already
+exited processes and recovers CANCELLING as interrupted after restart. Cancellation does not undo
+provider requests or guarantee termination of descendants created by a custom local callable.
+
+Workspace approvals use `_baselines/baselines.db`, a dedicated versioned SQLite store with the
+existing SQLStore immutable snapshots and audit history. Session-protected approval routes select
+only baseline/candidate runs from UUID-addressed saved experiments and apply validate_baseline.
+Invalid, unknown, error, unscored or failed-critical evidence is rejected. Users explicitly review
+and approve a reference; noncritical quality failures are not automatically forbidden. The UI offers
+only dataset-name/version/hash and evaluator-compatible approvals. Job submission validates again
+and freezes the approved run ID before launching the CLI with the workspace database, avoiding a
+latest-name race. Such jobs also persist their paired result in that explicit workspace SQL store;
+ordinary jobs stay artifact-only. No inherited or browser-supplied remote database URL is used.
+
+The browser includes topic and question search, model setup, reference approval/reuse and approval
+history. All displayed inputs/outputs remain text DOM. Local identity fields are audit labels,
+not multiuser authentication. Public hosting, distributed queues, semantic embeddings, advanced
+agent evaluators, judge calibration and production ingestion remain roadmap work; this release
+completes the current local portfolio workflow without claiming those future systems.
 
 ## Concrete repository structure
 
