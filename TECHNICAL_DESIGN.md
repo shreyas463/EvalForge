@@ -6,7 +6,7 @@
 ---
 
 
-# Implementation Ledger — Release 0.3.0
+# Implementation Ledger — Release 0.4.0
 
 The requested V0/V1 vertical slice and the baseline/reliability/application-demo milestone are implemented as a Python library/CLI. The following 63 sections preserve the long-term product design; statements about services, advanced evaluators, or UI below describe **planned** functionality unless listed as implemented here.
 
@@ -57,16 +57,48 @@ label isolation and a missing-document regression. No live paid AI validation is
 ## Local results dashboard (0.3.0)
 
 `evalforge dashboard --open` serves a packaged HTML/CSS/JavaScript results explorer through
-Python's standard-library HTTP server, bound only to 127.0.0.1. This is an initial read-only
-artifact viewer, not the future FastAPI/control-plane/worker architecture. It lists validated
+Python's standard-library HTTP server, bound only to 127.0.0.1. The original 0.3.0 artifact viewer is extended
+by the 0.4.0 local execution milestone below; the future FastAPI/control-plane/worker architecture remains planned. It lists validated
 `experiment.json` snapshots under a configured artifact root, newest first, and shows gates,
 baseline/candidate case answers, evaluator explanations and RAG passage/citation evidence.
 The client uses text DOM rendering for untrusted inputs/outputs, never HTML interpolation.
-Local Host/Origin validation, same-origin assets, CSP and no write endpoints keep its scope local.
+Local Host/Origin validation, same-origin assets and CSP keep its scope local.
 UUID-only experiment routes, symlink/path guards and a 16-MiB per-artifact read bound prevent
 arbitrary file browsing. Invalid folders are counted/skipped. Listing scans all snapshots;
-SQL querying, pagination, authentication, model execution and approvals in the UI are deferred.
+SQL querying, pagination, multiuser authentication and approvals in the UI are deferred.
 Tests cover real loopback HTTP routes, invalid artifacts, path/origin guards and CLI dispatch.
+
+## Browser execution and local jobs (0.4.0)
+
+The dashboard now accepts repeated `--config PATH` flags to register trusted configurations.
+With none registered it remains read-only. Setup validates datasets, target construction,
+evaluator options, placeholder model IDs, local credential availability and model budgets.
+Missing credentials are described by environment-variable name without returning secrets.
+Registered local callables are trusted Python code; setup can import their modules.
+
+`POST /api/jobs` accepts only a registered profile ID and a model-call confirmation boolean.
+Host/Origin checks and a random session token protect submission. Model jobs require request,
+time and output-token limits plus explicit confirmation; these are not monetary spending caps.
+A SQLite transaction gives one execution dashboard ownership of each artifact root. A thread
+supervises one separate CLI process at a time, while HTTP polling reports queued, running,
+completed, error or interrupted status. A completed quality FAIL remains a completed job;
+execution errors retain ERROR artifacts when available. Valid results move into normal UUID
+artifact directories and the UI opens the comparison.
+
+`_jobs/UUID/` stores atomic `job.json` state, a frozen `config.json` with absolute file references,
+and `execution.log`. The source-config digest is captured at submission; file inputs and local
+modules are still read at execution, with their actual versions recorded in experiment evidence.
+Browser workers remove inherited `EVALFORGE_DATABASE_URL` and write artifacts only. Process
+execution is bounded to min(configured max_seconds or 300, 3600) + 15 seconds. Normal server
+shutdown terminates the owned process. Startup marks unfinished jobs interrupted without
+retrying. An unexpected parent crash may leave a child process alive, so operators must check
+processes and artifacts before retrying. There is no durable queue, cancellation endpoint,
+per-question progress stream or job-history UI. These local jobs do not implement the planned
+FastAPI/distributed worker architecture.
+
+Tests exercise real CLI jobs and loopback submission, origin/token guards, busy rejection,
+worker deadlines, execution-error artifacts and restart/ownership behavior. Live paid model
+validation remains outstanding; controlled provider tests do not establish model quality.
 
 ## Concrete repository structure
 
@@ -142,7 +174,7 @@ Exit codes: 0 pass/valid, 1 blocking regression, 2 invalid content/config/incomp
 
 The workflow installs the built package, runs tests/style/coverage (minimum 90%), provides a PostgreSQL service, executes a passing 24-case fixture, and asserts the injected refund regression exits **exactly 1**. Any other result fails CI. JSON reports and failure evidence are uploaded and published in the job summary. This is an offline engine regression gate; consumers must configure their own application target/suite for an application release gate. Fixture policies are fictional and explicitly authored, not a live RAG/LLM demonstration.
 
-V0/V1 core acceptance is covered: 20+ cases, two target configurations, deterministic and judge/provider boundaries, case/aggregate metrics, persistence, configured regressions and meaningful nonzero exit codes. Live model behavior and statistical quality validation are not claimed. The full portfolio definition in section 61 is **not complete**, and advanced/dashboard work has intentionally stopped here.
+V0/V1 core acceptance is covered: 20+ cases, two target configurations, deterministic and judge/provider boundaries, case/aggregate metrics, persistence, configured regressions and meaningful nonzero exit codes. Live model behavior and statistical quality validation are not claimed. The full portfolio definition in section 61 is **not complete**, and the broader service and advanced evaluation work remains planned.
 
 ---
 

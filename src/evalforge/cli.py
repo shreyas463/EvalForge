@@ -124,6 +124,12 @@ def main(argv=None) -> int:
     )
     sub = parser.add_subparsers(dest="command", required=True)
     dashboard = sub.add_parser("dashboard", help="view saved experiments in a local browser")
+    dashboard.add_argument(
+        "--config",
+        action="append",
+        default=[],
+        help="trusted config to enable for browser execution; repeat for multiple",
+    )
     dashboard.add_argument("--artifact-root", default=".evalforge")
     dashboard.add_argument("--port", type=int, default=8765)
     dashboard.add_argument("--open", action="store_true", dest="open_browser")
@@ -171,7 +177,12 @@ def main(argv=None) -> int:
 
             if not 0 <= args.port <= 65535:
                 raise ValueError("port must be between 0 and 65535")
-            return serve(args.artifact_root, port=args.port, open_browser=args.open_browser)
+            return serve(
+                args.artifact_root,
+                port=args.port,
+                open_browser=args.open_browser,
+                configs=args.config,
+            )
         if args.command == "validate":
             dataset = load_jsonl(args.dataset)
             print(f"Valid: {dataset.name}, {len(dataset.cases)} cases, version={dataset.version}")

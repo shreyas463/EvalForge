@@ -224,3 +224,73 @@ async function refresh() {
 document.querySelector('#help').addEventListener('click', () => toggleHelp(document.querySelector('#getting-started').hidden));
 document.querySelector('#refresh').addEventListener('click', refresh);
 refresh();
+
+let setup = {profiles:[]};
+let activeJob = null;
+let pollTimer = null;
+const runProfile = document.querySelector('#run-profile');
+const startRun = document.querySelector('#start-run');
+const consent = document.querySelector('#confirm-model');
+const jobStatus = document.querySelector('#job-status');
+function renderProfile() {
+  const profile = setup.profiles.find(profile => profile.id === runProfile.value);
+  const issues = document.querySelector('#setup-issues');
+  issues.replaceChildren();
+  for (const issue of profile?.issues ?? []) issues.append(node('li', issue));
+  document.querySelector('#paid-consent').hidden = !profile?.uses_model;
+  startRun.disabled = !!activeJob || !profile?.ready || (profile.uses_model && !consent.checked);
+  document.querySelector('#profile-description').textContent = profile ? `${profile.questions ?? 'Unknown'} questions · ${profile.baseline ?? 'Baseline'} → ${profile.candidate ?? 'Candidate'} · ${profile.uses_model ? `Model-backed; maximum ${profile.request_limit ?? 'unspecified'} HTTP attempts.` : 'Local application or predefined fixtures. Its configuration determines behavior.'}` : 'No tests enabled for browser execution. Start the dashboard with --config examples/support/offline.json for the rule-based demo, or --config examples/rag/live.json for a configured model test.';
+}
+async function loadSetup() {
+  try {
+    const previous = runProfile.value;
+    setup = await get('/api/setup');
+    runProfile.replaceChildren();
+    for (const profile of setup.profiles) {
+      const option = node('option', profile.name); option.value = profile.id; runProfile.append(option);
+    }
+    if (!setup.profiles.length) runProfile.append(node('option', 'No configurations enabled'));
+    if (setup.profiles.some(profile => profile.id === previous)) runProfile.value = previous;
+    runProfile.disabled = !setup.profiles.length || !!activeJob;
+    renderProfile();
+    if (setup.active_job && !activeJob) { activeJob = setup.active_job; renderProfile(); pollJob(); }
+  } catch (error) { jobStatus.textContent = error.message; startRun.disabled = true; }
+}
+async function pollJob() {
+  if (!activeJob) return;
+  try {
+    const job = await get(`/api/jobs/${encodeURIComponent(activeJob)}`);
+    jobStatus.replaceChildren(node('span', `${job.status === 'RUNNING' ? 'Running' : job.status === 'QUEUED' ? 'Queued' : job.status === 'COMPLETED' ? 'Finished' : job.status === 'INTERRUPTED' ? 'Interrupted' : 'Could not complete'} · ${job.message}`));
+    if (['QUEUED', 'RUNNING'].includes(job.status)) {
+      pollTimer = setTimeout(pollJob, 1000);
+      return;
+    }
+    activeJob = null; runProfile.disabled = !setup.profiles.length; renderProfile();
+    await refresh();
+    if (job.experiment_directory) {
+      await selectExperiment(job.experiment_directory);
+      const open = node('button', 'View results');
+      open.addEventListener('click', () => { detail.scrollIntoView({behavior:'smooth'}); });
+      jobStatus.append(open);
+    }
+  } catch (error) {
+    activeJob = null; runProfile.disabled = !setup.profiles.length; renderProfile();
+    jobStatus.textContent = `${error.message} Refresh setup to check whether a job is still running.`;
+  }
+}
+startRun.addEventListener('click', async () => {
+  const profile = setup.profiles.find(profile => profile.id === runProfile.value);
+  if (!profile?.ready || activeJob || (profile.uses_model && !consent.checked)) return;
+  startRun.disabled = true;
+  try {
+    const response = await fetch('/api/jobs', {method:'POST', headers:{'Content-Type':'application/json', 'X-EvalForge-Token':setup.session_token}, body:JSON.stringify({profile_id:profile.id, confirm_model_calls:consent.checked})});
+    const job = await response.json();
+    if (!response.ok) throw new Error(job.error ?? 'Could not start the evaluation.');
+    activeJob = job.id; runProfile.disabled = true; renderProfile();
+    clearTimeout(pollTimer); pollJob();
+  } catch (error) { jobStatus.textContent = error.message; await loadSetup(); }
+});
+runProfile.addEventListener('change', () => { consent.checked = false; renderProfile(); });
+consent.addEventListener('change', renderProfile);
+document.querySelector('#check-setup').addEventListener('click', loadSetup);
+loadSetup();
