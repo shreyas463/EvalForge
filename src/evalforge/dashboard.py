@@ -114,7 +114,7 @@ def make_server(root: str | Path, *, port: int = 8765, configs=()):
             ):
                 self.send(403, b'{"error":"local session required"}')
                 return
-            if self.path != "/api/jobs":
+            if self.path not in {"/api/jobs", "/api/retrieval"}:
                 self.send(404, b'{"error":"route not found"}')
                 return
             try:
@@ -122,6 +122,16 @@ def make_server(root: str | Path, *, port: int = 8765, configs=()):
                 if not 0 < length <= 4096 or self.headers.get("Content-Type") != "application/json":
                     raise ValueError("expected a small JSON request")
                 payload = parse_json(self.rfile.read(length).decode("utf-8"))
+                if self.path == "/api/retrieval":
+                    if (
+                        not isinstance(payload, dict)
+                        or set(payload) != {"profile_id", "question"}
+                        or not isinstance(payload["profile_id"], str)
+                    ):
+                        raise ValueError("select a registered RAG configuration and question")
+                    result = jobs.preview_retrieval(payload["profile_id"], payload["question"])
+                    self.send(200, json.dumps(result, ensure_ascii=False, allow_nan=False).encode())
+                    return
                 if (
                     not isinstance(payload, dict)
                     or set(payload) - {"profile_id", "confirm_model_calls"}

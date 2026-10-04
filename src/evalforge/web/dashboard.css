@@ -155,3 +155,22 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 #paid-consent { color: #697386; }
 #job-status { font-size: 12px; margin-top: 12px; color: #697386; }
 #job-status button { font-size: 11px; margin-left: 10px; }
+
+#source-preview[hidden] { display: none; }
+#source-preview { border-top: 1px solid var(--line); margin-top: 24px; padding-top: 20px; }
+#source-preview h3 { font-size: 15px; margin-bottom: 8px; }
+#source-preview p { font-size: 12px; line-height: 1.65; color: var(--muted); }
+#preview-form { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+#preview-form label { width: 100%; font-size: 12px; }
+#preview-question { flex: 1; min-width: min(250px, 100%); padding: 10px 12px; border: 1px solid var(--line); border-radius: 7px; font: inherit; font-size: 13px; }
+#preview-form button { font-size: 12px; }
+#preview-status { margin-top: 12px; }
+#preview-results { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 16px; }
+.preview-column { min-width: 0; }
+.preview-column h4 { font-size: 12px; }
+.preview-passage, .empty-sources { padding: 14px; margin-top: 10px; border: 1px solid var(--line); border-radius: 8px; background: #f9fafc; overflow-wrap: anywhere; }
+.preview-passage h5 { font-size: 13px; margin-bottom: 5px; }
+.preview-passage details { font-size: 11px; margin-top: 10px; }
+.preview-passage details code { font-size: 10px; }
+.next-step { margin-top: 16px; }
+@media (max-width: 700px) { #preview-results { grid-template-columns: 1fr; } }

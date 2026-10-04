@@ -12,6 +12,20 @@ python -m evalforge.demos.rag 'What is the refund policy?' --retrieve-only
 
 This is search inspection only, with no answer generation or API calls.
 
+You can inspect the same retrieval in the browser:
+
+```bash
+evalforge dashboard --config examples/rag/live.json --open
+```
+
+Select the RAG configuration, enter `refund` under **Check what the documents say**, and select
+**Preview sources · no model calls**. The original collection finds the 14-day refund policy;
+the changed collection has no matching refund passage. Other questions may retrieve unrelated
+passages because search matches words rather than meaning. The view shows ranked source text,
+file names and optional search details. It rebuilds both collections on each preview, so edited
+Markdown appears on the next search. No credential is required, no answers are generated and
+no evaluation is saved. Missing AI setup blocks **Run evaluation**, not source previews.
+
 For AI answers, configure `OPENAI_API_KEY` locally (never commit a key), then:
 
 ```bash

@@ -355,3 +355,125 @@ def test_model_job_requires_confirmation_and_budgets(tmp_path, monkeypatch):
         assert manager.active is None
     finally:
         manager.close()
+
+
+def test_rag_preview_searches_real_corpora_without_models_or_labels(tmp_path, monkeypatch):
+    from pathlib import Path
+
+    from evalforge.jobs import JobManager
+
+    source = Path(__file__).resolve().parents[1] / "examples/rag/live.json"
+    manager = JobManager(tmp_path, [source])
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    try:
+        profile = manager.profile("0")
+        assert profile["can_preview_retrieval"] and not profile["ready"]
+
+        def forbidden(*args, **kwargs):
+            pytest.fail(
+                "a retrieval preview must not build model targets or read evaluation labels"
+            )
+
+        monkeypatch.setattr("evalforge.jobs.build_target", forbidden)
+        monkeypatch.setattr("evalforge.jobs.load_jsonl", forbidden)
+        result = manager.preview_retrieval("0", "  refund  ")
+        assert result["mode"] == "retrieval_only"
+        assert result["question"] == "refund"
+        assert result["baseline"]["documents"] == 3
+        assert result["candidate"]["documents"] == 2
+        passages = result["baseline"]["trace"]["passages"]
+        assert passages[0]["document_id"] == "refunds.md"
+        assert "14 days" in passages[0]["text"]
+        assert result["candidate"]["trace"]["passages"] == []
+        assert result["baseline"]["trace"]["citations"] == []
+        assert manager.active is None
+        assert not list((tmp_path / "_jobs").glob("*/job.json"))
+        assert not ArtifactReader(tmp_path).list()["experiments"]
+        for invalid in ("", "   ", None, {}, "x" * 2001):
+            with pytest.raises(ValueError, match="question"):
+                manager.preview_retrieval("0", invalid)
+        with pytest.raises(KeyError):
+            manager.preview_retrieval("../outside.json", "refund")
+    finally:
+        manager.close()
+
+
+def test_rag_preview_rebuilds_documents_and_keeps_empty_matches(tmp_path):
+    from pathlib import Path
+
+    from evalforge.jobs import JobManager
+
+    source = Path(__file__).resolve().parents[1] / "examples/rag/live.json"
+    config = json.loads(source.read_text())
+    documents = tmp_path / "docs"
+    documents.mkdir()
+    document = documents / "policy.md"
+    document.write_text("# Refund policy\nRefunds within 14 days.")
+    for name in ("baseline", "candidate"):
+        config[name]["documents"] = str(documents)
+    path = tmp_path / "rag.json"
+    write_json(path, config)
+    manager = JobManager(tmp_path / "results", [path])
+    try:
+        first = manager.preview_retrieval("0", "refunds")["baseline"]["trace"]
+        document.write_text("# Refund policy\nRefunds within 7 days.")
+        updated = manager.preview_retrieval("0", "refunds")["baseline"]["trace"]
+        assert first["corpus_hash"] != updated["corpus_hash"]
+        assert "7 days" in updated["passages"][0]["text"]
+        assert manager.preview_retrieval("0", "zzzznomatch")["baseline"]["trace"]["passages"] == []
+        document.unlink()
+        with pytest.raises(ValueError, match="nonempty"):
+            manager.preview_retrieval("0", "refunds")
+    finally:
+        manager.close()
+
+
+def test_http_retrieval_preview_checks_session_profile_and_question(tmp_path):
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    server = make_server(
+        tmp_path,
+        port=0,
+        configs=[root / "examples/rag/live.json", root / "examples/support/offline.json"],
+    )
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    base = f"http://127.0.0.1:{server.server_port}"
+    try:
+        with httpx.Client(base_url=base, trust_env=False) as client:
+            setup = client.get("/api/setup").json()
+            headers = {"X-EvalForge-Token": setup["session_token"]}
+            payload = {"profile_id": "0", "question": "refund"}
+            assert client.post("/api/retrieval", json=payload).status_code == 403
+            assert (
+                client.post(
+                    "/api/retrieval",
+                    json=payload,
+                    headers={**headers, "Origin": "https://attacker.example"},
+                ).status_code
+                == 403
+            )
+            result = client.post("/api/retrieval", json=payload, headers=headers)
+            assert result.status_code == 200
+            assert result.json()["baseline"]["trace"]["passages"][0]["document_id"] == "refunds.md"
+            for invalid in (
+                {"profile_id": "0"},
+                {**payload, "path": "/tmp"},
+                {**payload, "question": False},
+                {**payload, "profile_id": "1"},
+            ):
+                assert (
+                    client.post("/api/retrieval", json=invalid, headers=headers).status_code == 422
+                )
+            assert (
+                client.post(
+                    "/api/retrieval", json={**payload, "profile_id": "unknown"}, headers=headers
+                ).status_code
+                == 404
+            )
+            assert not client.get("/api/experiments").json()["experiments"]
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join()

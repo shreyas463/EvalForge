@@ -17,6 +17,7 @@ from uuid import UUID, uuid4
 from evalforge.config import ChatConfig, RAGConfig, build_evaluators, build_target, load_config
 from evalforge.datasets import load_jsonl, parse_json
 from evalforge.models import Experiment
+from evalforge.rag import BM25Retriever
 from evalforge.storage import write_json
 
 
@@ -87,6 +88,7 @@ class JobManager:
             "ready": False,
             "issues": [],
             "uses_model": False,
+            "can_preview_retrieval": False,
         }
         try:
             config = config or load_config(path)
@@ -110,6 +112,9 @@ class JobManager:
             )
             for target in (config.baseline, config.candidate):
                 build_target(target, base_dir=path.parent)
+            profile["can_preview_retrieval"] = all(
+                isinstance(target, RAGConfig) for target in (config.baseline, config.candidate)
+            )
             for provider in providers:
                 if provider.model.startswith("YOUR_"):
                     profile["issues"].append(
@@ -137,6 +142,30 @@ class JobManager:
                 "registered files and refresh setup."
             )
         return profile
+
+    def preview_retrieval(self, profile_id, question):
+        """Search trusted registered corpora; never construct/call a model or read labels."""
+        if profile_id not in self.configs:
+            raise KeyError("unknown registered configuration")
+        if not isinstance(question, str) or not question.strip() or len(question) > 2000:
+            raise ValueError("enter a question of 1 to 2000 characters")
+        path = self.configs[profile_id]
+        config = load_config(path)
+        result = {"question": question.strip(), "mode": "retrieval_only"}
+        for name in ("baseline", "candidate"):
+            target = getattr(config, name)
+            if not isinstance(target, RAGConfig):
+                raise ValueError("source previews require two RAG targets")
+            retriever = BM25Retriever(
+                path.parent / target.documents, chunk_words=target.chunk_words
+            )
+            trace = retriever.retrieve(question.strip(), top_k=target.top_k)
+            result[name] = {
+                "name": target.name,
+                "documents": len({chunk["document_id"] for chunk in retriever.chunks}),
+                "trace": trace.model_dump(mode="json"),
+            }
+        return result
 
     def get(self, identifier):
         try:

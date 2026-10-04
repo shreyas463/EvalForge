@@ -225,6 +225,7 @@ document.querySelector('#help').addEventListener('click', () => toggleHelp(docum
 document.querySelector('#refresh').addEventListener('click', refresh);
 refresh();
 
+let previewRequest = 0;
 let setup = {profiles:[]};
 let activeJob = null;
 let pollTimer = null;
@@ -238,13 +239,15 @@ function renderProfile() {
   issues.replaceChildren();
   for (const issue of profile?.issues ?? []) issues.append(node('li', issue));
   document.querySelector('#paid-consent').hidden = !profile?.uses_model;
+  document.querySelector('#source-preview').hidden = !profile?.can_preview_retrieval;
   startRun.disabled = !!activeJob || !profile?.ready || (profile.uses_model && !consent.checked);
-  document.querySelector('#profile-description').textContent = profile ? `${profile.questions ?? 'Unknown'} questions · ${profile.baseline ?? 'Baseline'} → ${profile.candidate ?? 'Candidate'} · ${profile.uses_model ? `Model-backed; maximum ${profile.request_limit ?? 'unspecified'} HTTP attempts.` : 'Local application or predefined fixtures. Its configuration determines behavior.'}` : 'No tests enabled for browser execution. Start the dashboard with --config examples/support/offline.json for the rule-based demo, or --config examples/rag/live.json for a configured model test.';
+  document.querySelector('#profile-description').textContent = profile ? `${profile.questions ?? 'Unknown'} questions · ${profile.baseline ?? 'Baseline'} → ${profile.candidate ?? 'Candidate'} · ${profile.uses_model ? `AI evaluation · up to ${profile.request_limit ?? 'unspecified'} model requests, including retries.` : 'Local application or predefined fixtures. Its configuration determines behavior.'}` : 'No tests enabled for browser execution. Start the dashboard with --config examples/support/offline.json for the rule-based demo, or --config examples/rag/live.json for a configured model test.';
 }
 async function loadSetup() {
   try {
     const previous = runProfile.value;
     setup = await get('/api/setup');
+    clearPreview();
     runProfile.replaceChildren();
     for (const profile of setup.profiles) {
       const option = node('option', profile.name); option.value = profile.id; runProfile.append(option);
@@ -290,7 +293,49 @@ startRun.addEventListener('click', async () => {
     clearTimeout(pollTimer); pollJob();
   } catch (error) { jobStatus.textContent = error.message; await loadSetup(); }
 });
-runProfile.addEventListener('change', () => { consent.checked = false; renderProfile(); });
+runProfile.addEventListener('change', () => { consent.checked = false; clearPreview(); renderProfile(); });
 consent.addEventListener('change', renderProfile);
 document.querySelector('#check-setup').addEventListener('click', loadSetup);
 loadSetup();
+
+function clearPreview() {
+  previewRequest += 1;
+  document.querySelector('#preview-results').replaceChildren();
+  document.querySelector('#preview-status').textContent = '';
+  document.querySelector('#preview-sources').disabled = false;
+}
+document.querySelector('#preview-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const profileId = runProfile.value;
+  const question = document.querySelector('#preview-question').value.trim();
+  const status = document.querySelector('#preview-status');
+  const results = document.querySelector('#preview-results');
+  if (!question) { status.textContent = 'Enter a question first.'; return; }
+  const request = ++previewRequest;
+  document.querySelector('#preview-sources').disabled = true;
+  results.replaceChildren(); status.textContent = 'Searching both document collections…';
+  try {
+    const response = await fetch('/api/retrieval', {method:'POST', headers:{'Content-Type':'application/json','X-EvalForge-Token':setup.session_token}, body:JSON.stringify({profile_id:profileId,question})});
+    const preview = await response.json();
+    if (request !== previewRequest) return;
+    if (!response.ok) throw new Error(preview.error ?? 'Could not preview sources.');
+    status.textContent = `Search complete for “${preview.question}”. No AI answer was generated and no evaluation was saved.`;
+    for (const [key, label] of [['baseline','Original version · baseline'],['candidate','Changed version · candidate']]) {
+      const target = preview[key];
+      const column = node('section', undefined, 'preview-column');
+      column.append(node('h4', label), node('p', `${target.name} · ${target.documents} documents · ${target.trace.passages.length} matching passage${target.trace.passages.length === 1 ? '' : 's'}`));
+      if (!target.trace.passages.length) column.append(node('p', 'No matching passages. Check whether the collection contains this topic, or try different wording.', 'empty-sources'));
+      for (const passage of target.trace.passages) {
+        const card = node('article', undefined, 'preview-passage');
+        card.append(node('h5', `${passage.rank}. ${passage.heading}`), node('p', passage.document_id, 'muted'), node('p', passage.text));
+        const evidence = node('details');
+        evidence.append(node('summary', 'Search details'), node('p', `Word-match score: ${passage.score.toFixed(3)}. This is a ranking score, not AI confidence; scores from different collections are not directly comparable.`), node('code', passage.chunk_id));
+        card.append(evidence); column.append(card);
+      }
+      results.append(column);
+    }
+  } catch (error) { if (request === previewRequest) status.textContent = `${error.message} Refresh setup and check the registered documents.`; }
+  finally { if (request === previewRequest) document.querySelector('#preview-sources').disabled = false; }
+});
+
+document.querySelector('#preview-question').addEventListener('input', clearPreview);
