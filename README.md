@@ -4,7 +4,7 @@
 
 EvalForge runs paired baseline and candidate targets against a versioned JSONL dataset, preserves case-level evidence, scores outputs, and blocks configured regressions. Category and critical-case gates catch failures that an overall average can hide.
 
-**Status: core engine, RAG slice and local dashboard implemented (0.4.0).** This release includes the local CLI, approved baselines, bounded execution and retries, provider-backed model/judge interfaces, versioned PostgreSQL persistence, and a support-application regression demo. The RAG slice adds Markdown/BM25 retrieval, provider-generated cited answers, document retrieval metrics and a context-only faithfulness judge. A local dashboard displays saved experiments and launches explicitly registered evaluations with background job status. Agent evaluators, hosted API/worker service, embeddings, human calibration and production ingestion remain planned.
+**Status: core engine, RAG slice and local dashboard implemented (0.4.0).** This release includes the local CLI, approved baselines, bounded execution and retries, provider-backed model/judge interfaces, versioned PostgreSQL persistence, and a support-application regression demo. The RAG slice adds Markdown/BM25 retrieval, provider-generated cited answers, document retrieval metrics and a context-only faithfulness judge. A local dashboard displays saved experiments and launches explicitly registered evaluations with background job status. Its source preview lets you inspect both RAG document collections without a model connection. Agent evaluators, hosted API/worker service, embeddings, human calibration and production ingestion remain planned.
 
 ## Quick start
 
@@ -95,7 +95,14 @@ corpus versions, citations and judge evidence. The page explains the result and 
 Select the support configuration and click **Run evaluation** to try the complete browser
 workflow without an AI key. It evaluates eight questions and deliberately detects a regression:
 **Finished** means the job completed; **FAIL** means the candidate failed the quality checks.
-The saved comparison opens automatically. RAG uses a real model provider; its configuration
+The saved comparison opens automatically. Select **support-rag** to try **Preview sources**:
+type a question such as `refund` and inspect both versions' retrieved passages without an AI key.
+This uses real word-based document search, generates no AI answer, and saves no evaluation.
+Search scores rank matches within one collection; they are not confidence scores or comparable
+quality scores across collections. The candidate lacks the refund policy, so this query finds no
+candidate passage. Edit your Markdown files and preview again to inspect the updated collection.
+
+RAG answer generation uses a real model provider; its configuration
 stays blocked until model IDs and local credentials are configured. **Refresh setup** rechecks
 edited configuration files. Model runs also require confirmation and configured request, time
 and output-token limits. These limits are not a currency spending cap.

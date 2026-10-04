@@ -45,6 +45,18 @@
       <label for="run-profile">Test configuration</label>
       <select id="run-profile" disabled><option>No configurations enabled</option></select>
       <p id="profile-description" class="muted"></p>
+      <section id="source-preview" hidden aria-labelledby="source-preview-title">
+        <h3 id="source-preview-title">1. Check what the documents say</h3>
+        <p>Try a question to see which passages both versions retrieve. This searches your documents using matching words. It does not call AI, generate an answer or decide whether a version passes.</p>
+        <form id="preview-form">
+          <label for="preview-question">Your question</label>
+          <input id="preview-question" type="text" maxlength="2000" required placeholder="For example: What is the refund policy?">
+          <button type="submit" id="preview-sources">Preview sources · no model calls</button>
+        </form>
+        <p id="preview-status" role="status" aria-live="polite"></p>
+        <div id="preview-results"></div>
+        <p class="next-step"><strong>2. Evaluate the AI answers</strong> Complete the model setup below, then use Run evaluation. That calls the model and checks its answers against your evaluation rules.</p>
+      </section>
       <ul id="setup-issues"></ul>
       <label id="paid-consent" hidden><input type="checkbox" id="confirm-model"> I understand this configuration calls a model provider and may incur costs.</label>
       <button id="start-run" disabled>Run evaluation</button>

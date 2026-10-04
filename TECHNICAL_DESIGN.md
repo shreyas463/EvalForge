@@ -100,6 +100,24 @@ Tests exercise real CLI jobs and loopback submission, origin/token guards, busy 
 worker deadlines, execution-error artifacts and restart/ownership behavior. Live paid model
 validation remains outstanding; controlled provider tests do not establish model quality.
 
+## Model-free RAG source preview (0.4.0 follow-up)
+
+Registered configurations with two valid RAG targets expose a **Preview sources** workflow.
+`POST /api/retrieval` accepts only a registered profile ID and a nonempty question (maximum
+2,000 characters), under the same loopback Host/Origin and session-token checks as job submission.
+The existing 4-KiB UTF-8 JSON request-body limit also applies. It constructs BM25 retrievers from
+both trusted configuration document paths and returns typed retrieval traces with collection names
+and document counts. It does not construct a model provider, load evaluation cases/labels, invoke
+a judge, submit a job or persist an experiment. Placeholder model IDs and missing keys do not
+block previews. Invalid RAG files/target types are rejected without exposing arbitrary paths.
+
+Each request rebuilds corpus snapshots; edits appear on the next search. The browser renders
+passages as text, including zero-match guidance. Search scores are disclosed as lexical rankings,
+not confidence or comparable cross-corpus quality scores. Stale responses are discarded when the
+selected configuration changes or setup refreshes. This is an inspection tool, not an offline AI
+answer generator or a quality-gate result. Tests use real Markdown corpora, assert providers and
+evaluation labels are untouched, and cover edited/missing documents and real HTTP access guards.
+
 ## Concrete repository structure
 
 ```text
