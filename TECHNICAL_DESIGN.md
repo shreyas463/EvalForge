@@ -6,7 +6,7 @@
 ---
 
 
-# Implementation Ledger — Release 0.5.0
+# Implementation Ledger — Release 0.6.0
 
 The requested V0/V1 vertical slice and the baseline/reliability/application-demo milestone are implemented as a Python library/CLI. The following 63 sections preserve the long-term product design; statements about services, advanced evaluators, or UI below describe **planned** functionality unless listed as implemented here.
 
@@ -20,7 +20,7 @@ The requested V0/V1 vertical slice and the baseline/reliability/application-demo
 | D: Persistence | Atomic JSON artifacts; SQLAlchemy datasets/runs/experiments tables; PostgreSQL JSONB snapshots with immutable IDs/version labels and transactions | SQLite and real PostgreSQL round trips, idempotence, conflicts and rollback |
 | F: CLI/CI | Strict JSON config; validate/run/compare commands; exit codes 0/1/2/3; GitHub Actions with PostgreSQL, Python 3.11–3.14, coverage/style checks and installed-package regression demos | CLI pass/fail/error/config tests and 24-case offline demos; hosted CI results are recorded in the PR |
 
-Phase G now has an initial RAG slice, detailed below. Phase E (FastAPI/queue/workers), advanced phase H UI and phases I–J (agents/calibration), semantic similarity, embeddings, pairwise judging, production traces and adaptive generation are deferred.
+Phase G now has an initial RAG slice, detailed below. Phase E (FastAPI/queue/workers), advanced phase H UI, semantic similarity, embeddings, pairwise judging, live production traces and adaptive generation are deferred. Release 0.6 implements deterministic agent checks and human-review tooling, detailed below; actual human calibration and semantic agent evaluation remain pending.
 
 ## Reliability and application-demo extension
 
@@ -165,6 +165,38 @@ history. All displayed inputs/outputs remain text DOM. Local identity fields are
 not multiuser authentication. Public hosting, distributed queues, semantic embeddings, advanced
 agent evaluators, judge calibration and production ingestion remain roadmap work; this release
 completes the current local portfolio workflow without claiming those future systems.
+
+## Tool traces, recorded-file ingestion and independent review (0.6.0)
+
+Typed `ToolCall` and `AgentTrace` contracts capture ordered JSON arguments/results, unique call IDs,
+error states and optional externally reported task completion. Non-agent snapshots omit the new
+optional field during serialization, preserving existing immutable SQL payloads. Case schemas and
+dataset hashes are unchanged. Seven deterministic checks cover successful required tools, forbidden
+attempts, ordered successful subsequences, specified argument values, total-call limits, later
+successful recovery of a failed tool and completion flags. Policy lives in case.metadata.agent_rules
+and is validated as AgentRules. Missing policy fields skip; malformed policy/missing trace errors;
+missing completion is UNKNOWN. No semantic success or hidden reasoning is inferred.
+
+The local quote demo executes real Python tools against a fictional catalog, with four concrete
+regressions and an unchanged passing config. Recorded example captures come from those executed
+functions and are explicitly labeled. The dashboard/text report exposes calls, arguments/results
+and failure explanations. This extends the local engine, not a hosted agent service.
+
+A `recorded` target reads strict JSONL captured results with a 16-MiB read bound, rejects duplicate
+IDs/keys and malformed typed results, fingerprints source bytes, checks typed input equality and
+returns deep copies. It executes no recorded tools or model calls. `trace-export` serializes saved
+runs to this contract with source run/target/dataset metadata, without reference-label leakage.
+Original latency is preserved in observed_latency_ms; runner latency is replay overhead. Imported
+usage/cost and completion/provenance are externally supplied evidence, not authenticated claims.
+This implements file-based ingestion; live production collectors remain planned.
+
+`review-export` creates evidence without automatic scores and blank JSONL labels for one saved
+metric. `review-report` validates run/case/metric identity, unique labels, reviewer names and score
+ranges, then reports coverage, missing/unreviewed labels, unscored automatic evidence, paired status
+agreement, mean absolute error and disagreement/audit labels. No original evidence is mutated or
+provider called. Actual human labels must be supplied; no human-reviewed calibration set is claimed.
+Statistics are descriptive. Model-judge quality, semantic embeddings, live production collection,
+hosted authentication/deployment and distributed work remain pending.
 
 ## Concrete repository structure
 

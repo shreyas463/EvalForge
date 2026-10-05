@@ -64,6 +64,14 @@ def render_report(baseline: Run, candidate: Run, comparison: Comparison) -> str:
                         )
                         lines.append(f"       {json.dumps(passage.text)}")
                     lines.append(f"  {label} citations: {json.dumps(target.retrieval.citations)}")
+                if target.trajectory:
+                    lines.append(f"  {label} tool calls:")
+                    for call in target.trajectory.calls:
+                        lines.append(
+                            f"    {call.id}. {call.tool} {call.status} "
+                            f"arguments={json.dumps(call.arguments)} "
+                            f"output={json.dumps(call.output)}"
+                        )
             if row.target.error:
                 lines.append(f"  target error: {row.target.error}")
             lines.extend(

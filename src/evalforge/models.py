@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from typing import Annotated, Literal
 from uuid import uuid4
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_serializer, model_validator
 
 Name = Annotated[str, Field(min_length=1, pattern=r"^\S(?:.*\S)?$")]
 Score = Annotated[float, Field(ge=0, le=1, allow_inf_nan=False)]
@@ -72,6 +72,32 @@ class RetrievalTrace(Model):
         return self
 
 
+class ToolCall(Model):
+    id: Name
+    tool: Name
+    arguments: dict[str, JsonValue] = Field(default_factory=dict)
+    output: JsonValue = None
+    status: Literal["SUCCESS", "ERROR"] = "SUCCESS"
+    error: Name | None = None
+
+    @model_validator(mode="after")
+    def coherent_status(self):
+        if (self.status == "ERROR") != (self.error is not None):
+            raise ValueError("only failed tool calls require an error")
+        return self
+
+
+class AgentTrace(Model):
+    calls: list[ToolCall] = Field(default_factory=list, max_length=1000)
+    task_completed: bool | None = None
+
+    @model_validator(mode="after")
+    def unique_calls(self):
+        if len({call.id for call in self.calls}) != len(self.calls):
+            raise ValueError("tool call IDs must be unique")
+        return self
+
+
 class TargetResult(Model):
     output: str | None = None
     status: Literal["SUCCESS", "ERROR"] = "SUCCESS"
@@ -82,6 +108,14 @@ class TargetResult(Model):
     cost: NonNegative | None = None
     metadata: dict[str, JsonValue] = Field(default_factory=dict)
     retrieval: RetrievalTrace | None = None
+    trajectory: AgentTrace | None = None
+
+    @model_serializer(mode="wrap")
+    def compatible_snapshot(self, handler):
+        payload = handler(self)
+        if self.trajectory is None:
+            payload.pop("trajectory", None)
+        return payload
 
     @model_validator(mode="after")
     def coherent_status(self):
@@ -106,6 +140,13 @@ class EvaluatorSpec(Model):
         "retrieval_precision",
         "citation_validity",
         "faithfulness",
+        "required_tools",
+        "forbidden_tools",
+        "tool_order",
+        "tool_arguments",
+        "tool_efficiency",
+        "tool_recovery",
+        "task_completion",
     ]
     version: Name = "1"
     options: dict[str, JsonValue] = Field(default_factory=dict)

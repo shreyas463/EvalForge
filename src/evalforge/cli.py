@@ -123,6 +123,18 @@ def main(argv=None) -> int:
         prog="evalforge", description="Evaluate and gate paired AI targets"
     )
     sub = parser.add_subparsers(dest="command", required=True)
+    traces = sub.add_parser("trace-export", help="export saved application results for replay")
+    traces.add_argument("--run", required=True)
+    traces.add_argument("--output", required=True)
+    review = sub.add_parser("review-export", help="export blind evidence and empty human labels")
+    review.add_argument("--run", required=True)
+    review.add_argument("--metric", required=True)
+    review.add_argument("--destination", required=True)
+    calibration = sub.add_parser("review-report", help="compare human labels with saved scores")
+    calibration.add_argument("--run", required=True)
+    calibration.add_argument("--labels", required=True)
+    calibration.add_argument("--human-pass-threshold", type=float, default=0.5)
+    calibration.add_argument("--output", required=True)
     dashboard = sub.add_parser("dashboard", help="view saved experiments in a local browser")
     dashboard.add_argument(
         "--config",
@@ -200,6 +212,25 @@ def main(argv=None) -> int:
                 open_browser=args.open_browser,
                 configs=args.config,
             )
+        if args.command == "trace-export":
+            from evalforge.traces import export_traces
+
+            print(json.dumps(export_traces(args.run, args.output)))
+            return 0
+        if args.command == "review-export":
+            from evalforge.review import export_review
+
+            print(json.dumps(export_review(args.run, args.destination, metric=args.metric)))
+            return 0
+        if args.command == "review-report":
+            from evalforge.review import calibration_report
+
+            if Path(args.output).exists():
+                raise ValueError("report output already exists")
+            report = calibration_report(args.run, args.labels, threshold=args.human_pass_threshold)
+            write_json(args.output, report)
+            print(json.dumps(report, indent=2))
+            return 0
         if args.command == "setup":
             from evalforge.setup import create_config
 

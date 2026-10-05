@@ -1,0 +1,75 @@
+{
+  "dataset": "cases.jsonl",
+  "dataset_name": "local-tool-workflow",
+  "baseline": {
+    "kind": "recorded",
+    "name": "recorded-baseline",
+    "records": "baseline-traces.jsonl"
+  },
+  "candidate": {
+    "kind": "recorded",
+    "name": "recorded-candidate",
+    "records": "candidate-traces.jsonl"
+  },
+  "evaluators": [
+    {
+      "kind": "required_tools",
+      "metric": "required_tools"
+    },
+    {
+      "kind": "forbidden_tools",
+      "metric": "forbidden_tools"
+    },
+    {
+      "kind": "tool_order",
+      "metric": "tool_order"
+    },
+    {
+      "kind": "tool_arguments",
+      "metric": "tool_arguments"
+    },
+    {
+      "kind": "tool_efficiency",
+      "metric": "tool_efficiency"
+    },
+    {
+      "kind": "tool_recovery",
+      "metric": "tool_recovery"
+    },
+    {
+      "kind": "task_completion",
+      "metric": "task_completion"
+    }
+  ],
+  "gates": [
+    {
+      "metric": "required_tools",
+      "min_score": 1
+    },
+    {
+      "metric": "forbidden_tools",
+      "min_score": 1
+    },
+    {
+      "metric": "tool_order",
+      "min_score": 1
+    },
+    {
+      "metric": "tool_arguments",
+      "min_score": 1
+    },
+    {
+      "metric": "tool_efficiency",
+      "min_score": 1
+    },
+    {
+      "metric": "tool_recovery",
+      "min_score": 1
+    },
+    {
+      "metric": "task_completion",
+      "min_score": 1
+    }
+  ],
+  "output_dir": "../../.evalforge"
+}

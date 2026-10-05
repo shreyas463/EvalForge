@@ -4,7 +4,7 @@
 
 EvalForge runs paired baseline and candidate targets against a versioned JSONL dataset, preserves case-level evidence, scores outputs, and blocks configured regressions. Category and critical-case gates catch failures that an overall average can hide.
 
-**Status: core engine, RAG slice and local dashboard implemented (0.5.0).** This release includes the local CLI, approved baselines, bounded execution and retries, provider-backed model/judge interfaces, versioned PostgreSQL persistence, and a support-application regression demo. The RAG slice adds Markdown/BM25 retrieval, provider-generated cited answers, document retrieval metrics and a context-only faithfulness judge. A local dashboard displays saved experiments and launches explicitly registered evaluations with background job status. Its source preview lets you inspect both RAG document collections without a model connection. Release 0.5 adds an attributed public SQuAD retrieval benchmark, setup generation, job history/cancellation, browser model settings and local reference approval/reuse. Agent evaluators, hosted API/worker service, embeddings, human calibration and production ingestion remain planned.
+**Status: core engine, RAG slice and local dashboard implemented (0.6.0).** This release includes the local CLI, approved baselines, bounded execution and retries, provider-backed model/judge interfaces, versioned PostgreSQL persistence, and a support-application regression demo. The RAG slice adds Markdown/BM25 retrieval, provider-generated cited answers, document retrieval metrics and a context-only faithfulness judge. A local dashboard displays saved experiments and launches explicitly registered evaluations with background job status. Its source preview lets you inspect both RAG document collections without a model connection. Release 0.5 adds an attributed public SQuAD retrieval benchmark, setup generation, job history/cancellation, browser model settings and local reference approval/reuse. Release 0.6 adds deterministic tool-trajectory checks, recorded-result replay and independent human-review exports/reports. Hosted API/workers, embeddings, live trace collection and actual human calibration remain planned.
 
 ## Quick start
 
@@ -49,6 +49,22 @@ source documents reduce measured annotated-source recall from **98% to 88.5%**, 
 change. The unchanged pair passes its no-regression check. These scores apply to this subset and
 retriever, not the full SQuAD task or AI answer quality. The guide covers provenance, licensing,
 reproduction, your own datasets, model preparation, stopping jobs and approving references.
+
+## Evaluate tool behavior and review saved results without AI
+
+The [tool workflow guide](examples/agents/README.md) shows real local Python tool execution,
+seven deterministic trajectory checks and replay of recorded application results. The fictional
+catalog demo clearly identifies its source; it does not claim to be an AI agent or production data.
+
+```bash
+evalforge dashboard --config examples/agents/regression.json --config examples/agents/unchanged.json --config examples/agents/recorded.json --open
+```
+
+Expand **Tool calls** to inspect arguments/results and why a changed workflow was blocked.
+`trace-export` preserves a saved run for replay. `review-export` creates independent evidence and
+blank human labels; `review-report` compares real supplied labels with saved automatic scores.
+These commands need no model and never invent human judgments. The guide includes complete
+commands, capture formats, validation and measurement limitations.
 
 ## Run the support application demo
 
@@ -326,11 +342,11 @@ JSONL + JSON config → Targets → Versioned evaluators → Saved runs
 
 The implementation is a `src/evalforge` Python package with separate models, datasets, targets/providers, evaluators, runner, scoring, regression, storage, configuration, reporting, and CLI modules. It owns the evaluation/regression engine rather than wrapping a third-party eval library.
 
-Concurrency defaults to 1 and is configurable up to 32 cases; result order stays aligned with the dataset. Built-in providers support bounded transient retries; background workers remain deferred. Time budgets are cooperative: in-flight HTTP phases or local callables can finish after the deadline, and overdue results become errors. Local targets/evaluators cannot be forcibly terminated. Custom targets and evaluators must be thread-safe when concurrency exceeds 1. Latency is measured wall time around target execution, and p95 uses nearest rank. Operational averages are unweighted; quality averages use evaluator weights within each case, then case weights across cases. Skips are excluded and coverage is reported. No statistical significance claim is made by threshold gates. Artifacts contain raw inputs/outputs and should be handled as application data.
+Concurrency defaults to 1 and is configurable up to 32 cases; result order stays aligned with the dataset. Built-in providers support bounded transient retries; browser process workers are available; distributed workers remain deferred. Time budgets are cooperative: in-flight HTTP phases or local callables can finish after the deadline, and overdue results become errors. Local targets/evaluators cannot be forcibly terminated. Custom targets and evaluators must be thread-safe when concurrency exceeds 1. Latency is measured wall time around target execution, and p95 uses nearest rank. Operational averages are unweighted; quality averages use evaluator weights within each case, then case weights across cases. Skips are excluded and coverage is reported. No statistical significance claim is made by threshold gates. Artifacts contain raw inputs/outputs and should be handled as application data.
 
 ## Roadmap
 
-[`TECHNICAL_DESIGN.md`](TECHNICAL_DESIGN.md) retains the complete long-term architecture and starts with an implementation ledger. Next stages can add API/workers, semantic retrieval, agent trajectories, a hosted dashboard, calibration, and production feedback. They have not been built in this release.
+[`TECHNICAL_DESIGN.md`](TECHNICAL_DESIGN.md) retains the complete long-term architecture and starts with an implementation ledger. Next stages can add hosted API/workers, semantic retrieval, advanced agent reasoning evaluation, a hosted dashboard, actual human calibration, and live production feedback. Local deterministic tool evaluation, recorded-file replay and review/report tooling are implemented; live provider validation is pending.
 
 ## License
 

@@ -9,6 +9,7 @@ from urllib.parse import urlsplit
 
 from pydantic import Field, JsonValue, model_validator
 
+from evalforge.agents import AGENT_KINDS, AgentEvaluator
 from evalforge.datasets import parse_json
 from evalforge.evaluators import DeterministicEvaluator, LLMJudge, RAGEvaluator
 from evalforge.models import (
@@ -23,6 +24,7 @@ from evalforge.providers import ChatProvider
 from evalforge.rag import SYSTEM_PROMPT, BM25Retriever, RAGTarget, RetrievalTarget
 from evalforge.runner import RESERVED_METRICS
 from evalforge.targets import LLMTarget, LocalTarget, MockTarget
+from evalforge.traces import RecordedTarget
 
 
 class ProviderConfig(Model):
@@ -84,6 +86,12 @@ class ChatConfig(Model):
         return self
 
 
+class RecordedConfig(Model):
+    kind: Literal["recorded"]
+    name: Name
+    records: Name
+
+
 class RetrievalConfig(Model):
     kind: Literal["retrieval"]
     name: Name
@@ -102,7 +110,8 @@ class RAGConfig(Model):
 
 
 TargetConfig = Annotated[
-    MockConfig | LocalConfig | ChatConfig | RAGConfig | RetrievalConfig, Field(discriminator="kind")
+    MockConfig | LocalConfig | ChatConfig | RAGConfig | RetrievalConfig | RecordedConfig,
+    Field(discriminator="kind"),
 ]
 
 
@@ -143,6 +152,11 @@ def build_target(config: TargetConfig, *, base_dir: Path | None = None):
     snapshot = config.model_dump(mode="json")
     if isinstance(config, MockConfig):
         return MockTarget(config.responses), snapshot
+    if isinstance(config, RecordedConfig):
+        target = RecordedTarget((base_dir or Path.cwd()) / config.records)
+        snapshot["records_sha256"] = target.sha256
+        snapshot["evidence_mode"] = "recorded"
+        return target, snapshot
     if isinstance(config, (RAGConfig, RetrievalConfig)):
         retriever = BM25Retriever(
             (base_dir or Path.cwd()) / config.documents, chunk_words=config.chunk_words
@@ -183,6 +197,8 @@ def build_evaluators(config: ExperimentConfig):
         if spec.kind in {"judge", "faithfulness"}:
             spec.provider_config = config.judge_provider.model_dump(mode="json")
             evaluators.append(LLMJudge(spec, ChatProvider(**config.judge_provider.model_dump())))
+        elif spec.kind in AGENT_KINDS:
+            evaluators.append(AgentEvaluator(spec))
         elif spec.kind in {"retrieval_recall", "retrieval_precision", "citation_validity"}:
             evaluators.append(RAGEvaluator(spec))
         else:
