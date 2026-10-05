@@ -385,3 +385,54 @@ def test_local_tool_demo_does_not_use_policy_or_reference_labels():
     case = load_jsonl(ROOT / "examples/agents/cases.jsonl").cases[0]
     altered = case.model_copy(update={"metadata": {}, "reference_answer": "unrelated"})
     assert quote_case(case) == quote_case(altered)
+
+
+def test_original_latency_survives_run_export_and_repeated_replays(tmp_path):
+    from evalforge.evaluators import DeterministicEvaluator
+    from evalforge.traces import export_traces
+
+    capture = tmp_path / "original.jsonl"
+    write_records(capture, result=TargetResult(output="observed", latency_ms=9876.5))
+    dataset = Dataset(
+        name="capture",
+        version="1",
+        cases=[EvalCase(id="x", input="task", reference_answer="observed")],
+    )
+    evaluator = DeterministicEvaluator(EvaluatorSpec(metric="exact", kind="exact_match"))
+    for index in range(3):
+        target = RecordedTarget(capture)
+        run = run_experiment(dataset, target, [evaluator], target_name="replay")
+        result = run.cases[0].target
+        assert result.metadata["observed_latency_ms"] == 9876.5
+        assert result.latency_ms != 9876.5
+        run_path = tmp_path / f"run-{index}.json"
+        write_json(run_path, run.model_dump(mode="json"))
+        capture = tmp_path / f"capture-{index}.jsonl"
+        export_traces(run_path, capture)
+    assert (
+        RecordedTarget(capture).execute(dataset.cases[0]).metadata["observed_latency_ms"] == 9876.5
+    )
+
+
+@pytest.mark.parametrize("latency", [None, "42", True, -1])
+def test_invalid_preserved_latency_rejects_capture(tmp_path, latency):
+    capture = tmp_path / "capture.jsonl"
+    write_records(
+        capture, result=TargetResult(output="observed", metadata={"observed_latency_ms": latency})
+    )
+    with pytest.raises(ValueError, match="invalid recorded trace"):
+        RecordedTarget(capture)
+
+
+def test_zero_original_latency_is_preserved(tmp_path):
+    capture = tmp_path / "capture.jsonl"
+    write_records(
+        capture,
+        result=TargetResult(output="observed", latency_ms=42, metadata={"observed_latency_ms": 0}),
+    )
+    assert (
+        RecordedTarget(capture)
+        .execute(EvalCase(id="x", input="task"))
+        .metadata["observed_latency_ms"]
+        == 0
+    )

@@ -4,16 +4,24 @@ import hashlib
 import json
 from pathlib import Path
 
-from pydantic import JsonValue
+from pydantic import JsonValue, TypeAdapter, model_validator
 
 from evalforge.datasets import parse_json
-from evalforge.models import Model, Name, TargetResult
+from evalforge.models import Model, Name, NonNegative, TargetResult
 
 
 class RecordedCase(Model):
     case_id: Name
     input: str | dict[str, JsonValue]
     result: TargetResult
+
+    @model_validator(mode="after")
+    def valid_observed_latency(self):
+        if "observed_latency_ms" in self.result.metadata:
+            TypeAdapter(NonNegative).validate_python(
+                self.result.metadata["observed_latency_ms"], strict=True
+            )
+        return self
 
 
 def export_traces(run_path, output):
@@ -67,6 +75,6 @@ class RecordedTarget:
         ):
             raise ValueError("missing or mismatched recorded input")
         result = record.result.model_copy(deep=True)
-        result.metadata["observed_latency_ms"] = result.latency_ms
+        result.metadata.setdefault("observed_latency_ms", result.latency_ms)
         result.metadata["evidence_mode"] = "recorded"
         return result
